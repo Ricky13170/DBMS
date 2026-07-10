@@ -92,62 +92,72 @@ graph LR
     classDef layer1 fill:#99ccff,stroke:#333,stroke-width:1.5px,font-weight:bold;
     classDef layer2 fill:#ccffcc,stroke:#333,stroke-width:1px;
 
-    %% Root
+    %% Root (Center Node)
     db((DBMS)):::root
 
-    %% Layer 1 (Branches)
+    %% ==========================================
+    %% NỬA BÊN TRÁI (Mũi tên ngược <-- để xếp về bên trái)
+    %% ==========================================
+
+    %% Layer 1
     se[Storage Engine]:::layer1
     qp[Query Processing]:::layer1
     tc[Transaction & Concurrency]:::layer1
     sc[Security]:::layer1
+
+    se <-- db
+    qp <-- db
+    tc <-- db
+    sc <-- db
+
+    %% Layer 2: Storage Engine (con nằm bên trái cha)
+    se_fm[File Manager]:::layer2 <-- se
+    se_pm[Page Manager]:::layer2 <-- se
+    se_bm[Buffer Manager]:::layer2 <-- se
+    se_rm[Record Manager]:::layer2 <-- se
+    se_am[Access Methods]:::layer2 <-- se
+    se_sa[Storage Allocation]:::layer2 <-- se
+
+    %% Layer 2: Query Processing
+    qp_sp[SQL Parser]:::layer2 <-- qp
+    qp_qv[Query Validation]:::layer2 <-- qp
+    qp_qo[Query Optimizer]:::layer2 <-- qp
+    qp_qe[Query Executor]:::layer2 <-- qp
+    qp_rp[Result Processing]:::layer2 <-- qp
+
+    %% Layer 2: Transaction & Concurrency
+    tc_tm[Transaction Manager]:::layer2 <-- tc
+    tc_lm[Lock Manager]:::layer2 <-- tc
+    tc_dh[Deadlock Handler]:::layer2 <-- tc
+    tc_im[Isolation Manager]:::layer2 <-- tc
+    tc_cm[Concurrency Management]:::layer2 <-- tc
+
+    %% Layer 2: Security
+    sc_at[Authentication]:::layer2 <-- sc
+    sc_az[Authorization]:::layer2 <-- sc
+    sc_um[User Management]:::layer2 <-- sc
+    sc_rm[Role Management]:::layer2 <-- sc
+    sc_pm[Permission Manager]:::layer2 <-- sc
+    sc_ec[Encryption]:::layer2 <-- sc
+    sc_ad[Auditing]:::layer2 <-- sc
+    sc_sp[Security Policy]:::layer2 <-- sc
+
+    %% ==========================================
+    %% NỬA BÊN PHẢI (Mũi tên xuôi --> để xếp về bên phải)
+    %% ==========================================
+
+    %% Layer 1
     dom[Database Object & Metadata]:::layer1
     adm[Administration]:::layer1
     brl[Backup, Recovery & Logging]:::layer1
     cc[Communication & Connectivity]:::layer1
 
-    %% Connections Layer 1
-    db --> se
-    db --> qp
-    db --> tc
-    db --> sc
     db --> dom
     db --> adm
     db --> brl
     db --> cc
 
-    %% Layer 2: Storage Engine
-    se --> se_fm[File Manager]:::layer2
-    se --> se_pm[Page Manager]:::layer2
-    se --> se_bm[Buffer Manager]:::layer2
-    se --> se_rm[Record Manager]:::layer2
-    se --> se_am[Access Methods]:::layer2
-    se --> se_sa[Storage Allocation]:::layer2
-
-    %% Layer 2: Query Processing
-    qp --> qp_sp[SQL Parser]:::layer2
-    qp --> qp_qv[Query Validation]:::layer2
-    qp --> qp_qo[Query Optimizer]:::layer2
-    qp --> qp_qe[Query Executor]:::layer2
-    qp --> qp_rp[Result Processing]:::layer2
-
-    %% Layer 2: Transaction & Concurrency
-    tc --> tc_tm[Transaction Manager]:::layer2
-    tc --> tc_lm[Lock Manager]:::layer2
-    tc --> tc_dh[Deadlock Handler]:::layer2
-    tc --> tc_im[Isolation Manager]:::layer2
-    tc --> tc_cm[Concurrency Management]:::layer2
-
-    %% Layer 2: Security
-    sc --> sc_at[Authentication]:::layer2
-    sc --> sc_az[Authorization]:::layer2
-    sc --> sc_um[User Management]:::layer2
-    sc --> sc_rm[Role Management]:::layer2
-    sc --> sc_pm[Permission Manager]:::layer2
-    sc --> sc_ec[Encryption]:::layer2
-    sc --> sc_ad[Auditing]:::layer2
-    sc --> sc_sp[Security Policy]:::layer2
-
-    %% Layer 2: Database Object & Metadata
+    %% Layer 2: Database Object & Metadata (con nằm bên phải cha)
     dom --> dom_db[Database Manager]:::layer2
     dom --> dom_sc[Schema Manager]:::layer2
     dom --> dom_tb[Table Manager]:::layer2
@@ -182,3 +192,4 @@ graph LR
     cc --> cc_ph[Protocol Handler]:::layer2
     cc --> cc_rd[Request Dispatcher]:::layer2
     cc --> cc_rm[Response Manager]:::layer2
+```
