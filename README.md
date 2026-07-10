@@ -228,7 +228,6 @@ graph LR
 
 
 
-
 # Class Diagram Level 1: Hệ thống DBMS (High-Level Architecture)
 
 Tài liệu này cung cấp sơ đồ Class Diagram Level 1, thể hiện sự tương tác, phụ thuộc và thừa kế giữa các Class/Interface lớn nhất đại diện cho 8 nhánh của hệ thống DBMS.
@@ -249,107 +248,107 @@ classDiagram
         +acceptClientSocket()
     }
     class SessionManager {
-        +createSession() SessionContext
+        +createSession() : SessionContext
         +closeSession(SessionID)
-        +getActiveSession(SessionID) SessionContext
+        +getActiveSession(SessionID) : SessionContext
     }
     class RequestDispatcher {
         -threadPool : WorkerThreadPool
         +dispatchQuery(queryString, SessionContext)
     }
 
-    NetworkListener --> SessionManager : authenticates & creates
-    NetworkListener --> RequestDispatcher : dispatches socket stream to
+    NetworkListener --> SessionManager : "authenticates & creates"
+    NetworkListener --> RequestDispatcher : "dispatches socket stream to"
 
     %% ==========================================
     %% TẦNG 2: QUERY PROCESSING (Bộ xử lý truy vấn)
     %% ==========================================
     class SQLParser {
         -lexer : Lexer
-        +parseToAST(queryString) AST
+        +parseToAST(queryString) : AST
     }
     class SemanticValidator {
         -catalog : CatalogManager
-        +checkSemanticState(AST) boolean
+        +checkSemanticState(AST) : boolean
     }
     class QueryOptimizer {
         -costEstimator : CostEstimator
-        +generateBestPlan(AST) PhysicalPlan
+        +generateBestPlan(AST) : PhysicalPlan
     }
     class OperatorExecutor {
         <<abstract>>
-        +open()*
-        +next() Record*
-        +close()*
+        +open()
+        +next() : Record
+        +close()
     }
 
-    RequestDispatcher --> SQLParser : sends raw query to
-    SQLParser --> SemanticValidator : sends AST to
-    SemanticValidator --> QueryOptimizer : sends validated AST to
-    QueryOptimizer --> OperatorExecutor : compiles plan to executor tree
+    RequestDispatcher --> SQLParser : "sends raw query to"
+    SQLParser --> SemanticValidator : "sends AST to"
+    SemanticValidator --> QueryOptimizer : "sends validated AST to"
+    QueryOptimizer --> OperatorExecutor : "compiles plan to executor tree"
 
     %% ==========================================
     %% TẦNG 3: DATABASE OBJECT & METADATA (Cấu trúc & Catalog)
     %% ==========================================
     class CatalogManager {
         -metadataCache : MetadataCache
-        +resolveObjectID(schemaName, tableName) ObjectID
-        +getTableMetadata(ObjectID) TableMetadata
+        +resolveObjectID(schemaName, tableName) : ObjectID
+        +getTableMetadata(ObjectID) : TableMetadata
     }
     class IConstraintValidator {
         <<interface>>
-        +validateConstraints(Record, TableMetadata) boolean
+        +validateConstraints(Record, TableMetadata) : boolean
     }
 
-    SemanticValidator ..> CatalogManager : lookups metadata
-    OperatorExecutor ..> IConstraintValidator : evaluates validations on INSERT/UPDATE
+    SemanticValidator ..> CatalogManager : "lookups metadata"
+    OperatorExecutor ..> IConstraintValidator : "evaluates validations on INSERT/UPDATE"
 
     %% ==========================================
     %% TẦNG 4: TRANSACTION & LOCKING (Concurrency)
     %% ==========================================
     class TransactionManager {
         -transactionTable : TransactionTable
-        +beginTransaction() Transaction
+        +beginTransaction() : Transaction
         +commit(Transaction)
         +abort(Transaction)
     }
     class LockManager {
         -lockTable : LockTable
-        +acquireLock(TransactionID, ResourceID, LockMode) boolean
+        +acquireLock(TransactionID, ResourceID, LockMode) : boolean
         +releaseLock(TransactionID, ResourceID)
     }
 
-    RequestDispatcher ..> TransactionManager : manages tx block
-    OperatorExecutor ..> LockManager : requests locks (Shared/Exclusive) during read/write
+    RequestDispatcher ..> TransactionManager : "manages tx block"
+    OperatorExecutor ..> LockManager : "requests locks (Shared/Exclusive) during read/write"
 
     %% ==========================================
     %% TẦNG 5: ACCESS METHODS & BUFFER POOL (Storage Engine)
     %% ==========================================
     class IAccessMethod {
         <<interface>>
-        +getNextRecordRID(ScanState) RID
+        +getNextRecordRID(ScanState) : RID
     }
     class BPlusTreeManager {
-        +findKey(Key) RID
+        +findKey(Key) : RID
         +insertKey(Key, RID)
         +removeKey(Key)
     }
     class HeapScan {
-        +scanNextRow(TableID) RID
+        +scanNextRow(TableID) : RID
     }
     class BufferPoolManager {
         -frameTable : BufferFrame[]
-        +pinPage(PageID) BasePage
+        +pinPage(PageID) : BasePage
         +unpinPage(PageID, isDirty)
         +flushAll()
     }
 
-    IAccessMethod <|.. BPlusTreeManager : implements
-    IAccessMethod <|.. HeapScan : implements
+    IAccessMethod <|.. BPlusTreeManager : "implements"
+    IAccessMethod <|.. HeapScan : "implements"
 
-    OperatorExecutor --> IAccessMethod : retrieves physical row IDs from
-    BPlusTreeManager --> BufferPoolManager : requests data pages from
-    HeapScan --> BufferPoolManager : requests data pages from
+    OperatorExecutor --> IAccessMethod : "retrieves physical row IDs from"
+    BPlusTreeManager --> BufferPoolManager : "requests data pages from"
+    HeapScan --> BufferPoolManager : "requests data pages from"
 
     %% ==========================================
     %% TẦNG 6: FILE SYSTEM & LOGGING (OS & Bền vững)
@@ -365,9 +364,9 @@ classDiagram
         +flushLogToDisk()
     }
 
-    BufferPoolManager --> IFileManager : swaps pages using
-    TransactionManager --> IWalWriter : logs transaction state change
-    BPlusTreeManager --> IWalWriter : logs structural page modifications (Split/Merge)
+    BufferPoolManager --> IFileManager : "swaps pages using"
+    TransactionManager --> IWalWriter : "logs transaction state change"
+    BPlusTreeManager --> IWalWriter : "logs structural page modifications (Split/Merge)"
 ```
 
 ---
@@ -387,6 +386,3 @@ Sơ đồ Class Diagram Level 1 thể hiện rõ nét triết lý **Dependency I
     *   Khi `OperatorExecutor` duyệt dữ liệu, nó sẽ liên lạc với `LockManager` để xin cấp khóa (ví dụ: xin khóa đọc Shared Lock cho Row ID tương ứng). Nếu thành công, nó mới tiếp tục gọi `IAccessMethod` nạp trang. Việc này tách biệt hoàn toàn logic kiểm soát đồng thời khỏi logic lưu trữ.
 5.  **Bảo vệ toàn vẹn qua `IConstraintValidator`:**
     *   Khi Executor làm nhiệm vụ ghi (như INSERT), nó sẽ gọi giao diện `IConstraintValidator`. Tùy theo thiết lập bảng, `ForeignKeyValidator` hay `PrimaryKeyValidator` sẽ được nạp vào để kiểm duyệt điều kiện logic, bảm đảm tính Integrity.
-
-
-```
