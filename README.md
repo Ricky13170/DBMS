@@ -193,3 +193,32 @@ graph LR
     cc --- cc_rd[Request Dispatcher]:::layer2
     cc --- cc_rm[Response Manager]:::layer2
 ```
+
+
+
+
+
+
+
+
+
+graph LR
+    classDef branch fill:#99ccff,stroke:#333;
+    classDef sub fill:#ccffcc,stroke:#333;
+    classDef classNode fill:#fff,stroke:#333,stroke-dasharray: 5 5;
+
+    se[Storage Engine]:::branch
+    
+    %% Sub-components
+    se --> am[Access Methods]:::sub
+    se --> pm[Page Manager]:::sub
+    
+    %% Classes & Interfaces
+    am --- IAccess[<< interface >> IAccessMethod]:::classNode
+    am --- BTree[class BPlusTreeManager]:::classNode
+    am --- Heap[class HeapScan]:::classNode
+    
+    pm --- BasePg[<< abstract >> BasePage]:::classNode
+    pm --- DataPg[class DataPage]:::classNode
+    pm --- Header[class PageHeader]:::classNode
+
