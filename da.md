@@ -1,52 +1,28 @@
 # Class Diagram Level 1 — DBMS High-Level Architecture
 
-Sơ đồ thể hiện **8 module chính** và mối quan hệ giữa chúng ở mức tổng quan.  
-Không đi vào chi tiết method/property — đó là phần của Class Diagram Level 2 (chi tiết từng nhánh).
+Sơ đồ thể hiện **8 module chính** và mối quan hệ giữa chúng ở mức tổng quan.
 
 > **Relationship legend:**
-> - `<|--` Inheritance
-> - `<|..` Realization (implement interface)
-> - `*--` Composition
-> - `o--` Aggregation
-> - `-->` Association / uses
-> - `..>` Dependency
+> - `*--` Composition (DBMS sở hữu module)
+> - `-->` Association (phụ thuộc thường xuyên)
+> - `..>` Dependency (dùng tạm thời)
 
 ---
 
-## Mermaid Class Diagram
-
 ```mermaid
 classDiagram
+    direction TB
 
-    %% ─────────────────────────────────────────
-    %% 8 MODULE CHÍNH
-    %% ─────────────────────────────────────────
+    class DBMS {
+        <<system>>
+    }
 
     class CommunicationConnectivity {
         <<module>>
-    }
-
-    class QueryProcessing {
-        <<module>>
-    }
-
-    class TransactionConcurrency {
-        <<module>>
+        Communication and Connectivity
     }
 
     class Security {
-        <<module>>
-    }
-
-    class DatabaseObjectMetadata {
-        <<module>>
-    }
-
-    class StorageEngine {
-        <<module>>
-    }
-
-    class BackupRecoveryLogging {
         <<module>>
     }
 
@@ -54,69 +30,77 @@ classDiagram
         <<module>>
     }
 
-    %% ─────────────────────────────────────────
-    %% INTERFACES TRUNG TÂM
-    %% ─────────────────────────────────────────
-
-    class IAccessMethod {
-        <<interface>>
+    class QueryProcessing {
+        <<module>>
+        Query Processing
     }
 
-    class IWALManager {
-        <<interface>>
+    class TransactionConcurrency {
+        <<module>>
+        Transaction and Concurrency
     }
 
-    class IFileManager {
-        <<interface>>
+    class BackupRecoveryLogging {
+        <<module>>
+        Backup, Recovery and Logging
     }
 
-    %% ─────────────────────────────────────────
-    %% RELATIONSHIPS
-    %% ─────────────────────────────────────────
+    class StorageEngine {
+        <<module>>
+        Storage Engine
+    }
 
-    %% Entry point: mọi request đi qua Communication
-    CommunicationConnectivity --> QueryProcessing : "dispatches request"
-    CommunicationConnectivity ..> Security : "authenticates on connect"
+    class DatabaseObjectsMetadata {
+        <<module>>
+        Database Objects and Metadata
+    }
 
-    %% Query pipeline
-    QueryProcessing ..> DatabaseObjectMetadata : "resolves names, reads catalog & stats"
-    QueryProcessing ..> Security : "checks object privileges & RLS"
-    QueryProcessing --> StorageEngine : "reads/writes records"
-    QueryProcessing ..> TransactionConcurrency : "acquires locks, reads MVCC snapshot"
+    %% --- DBMS Composition (explicit diamonds) ---
+    DBMS *-- CommunicationConnectivity
+    DBMS *-- Security
+    DBMS *-- Administration
 
-    %% Storage Engine dùng interfaces
-    StorageEngine --> IAccessMethod : "delegates index/heap scan"
-    StorageEngine --> IFileManager : "swaps pages to disk"
-    StorageEngine --> IWALManager : "WAL before dirty write"
+    %% --- Main request pipeline ---
+    CommunicationConnectivity --> QueryProcessing : dispatches request
 
-    %% Transaction phối hợp với WAL
-    TransactionConcurrency --> IWALManager : "logs every state change"
+    %% --- Security cross-cutting ---
+    CommunicationConnectivity ..> Security : authenticates
+    QueryProcessing ..> Security : checks privilege
 
-    %% Backup dùng WAL và checkpoint
-    BackupRecoveryLogging o-- IWALManager : "replays log for recovery"
-    BackupRecoveryLogging o-- StorageEngine : "snapshots data files"
+    %% --- Query to lower layers ---
+    QueryProcessing ..> TransactionConcurrency : acquires lock
+    QueryProcessing --> StorageEngine : reads/writes data
+    QueryProcessing ..> DatabaseObjectsMetadata : catalog lookup
 
-    %% Administration hỗ trợ ngang
-    Administration o-- StorageEngine : "vacuum, index rebuild, statistics"
-    Administration o-- QueryProcessing : "supplies updated statistics to optimizer"
+    %% --- Transaction to WAL ---
+    TransactionConcurrency --> BackupRecoveryLogging : WAL log
 
-    %% Metadata là nền tảng chung
-    DatabaseObjectMetadata o-- StorageEngine : "provides schema to layout records"
+    %% --- Administration support ---
+    Administration ..> QueryProcessing : supplies statistics
+    Administration ..> StorageEngine : vacuum, rebuild index
+
+    %% --- Metadata support ---
+    DatabaseObjectsMetadata ..> StorageEngine : schema for record layout
+    DatabaseObjectsMetadata ..> BackupRecoveryLogging : object dependency on restore
 ```
 
 ---
 
-## Mối quan hệ chính giải thích
+## Tổng hợp Relationships
 
-| Relationship | Loại | Ý nghĩa |
-|---|---|---|
-| `CommunicationConnectivity → QueryProcessing` | Association | Mọi request đều đi qua đây trước |
-| `QueryProcessing ..> DatabaseObjectMetadata` | Dependency | Tra cứu catalog khi validate & optimize |
-| `QueryProcessing → StorageEngine` | Association | Query thực sự đọc/ghi data ở đây |
-| `QueryProcessing ..> TransactionConcurrency` | Dependency | Xin lock, đọc MVCC version trong lúc execute |
-| `StorageEngine → IAccessMethod` | Association | Strategy pattern — B+Tree hay HeapScan |
-| `StorageEngine → IWALManager` | Association | WAL rule: log trước, ghi sau |
-| `TransactionConcurrency → IWALManager` | Association | Mọi BEGIN/COMMIT/ROLLBACK phải log |
-| `BackupRecoveryLogging o-- IWALManager` | Aggregation | Recovery đọc lại log, không sở hữu |
-| `Administration o-- StorageEngine` | Aggregation | DBA tools: vacuum, rebuild, stats |
-| `DatabaseObjectMetadata o-- StorageEngine` | Aggregation | Schema metadata cho record layout |
+| Từ | Đến | Loại | Ý nghĩa |
+|---|---|---|---|
+| `DBMS` | `Communication & Connectivity` | Composition | DBMS sở hữu |
+| `DBMS` | `Security` | Composition | DBMS sở hữu |
+| `DBMS` | `Administration` | Composition | DBMS sở hữu |
+| `Communication & Connectivity` | `Query Processing` | Association | Entry point của mọi request |
+| `Communication & Connectivity` | `Security` | Dependency | Xác thực khi connect |
+| `Query Processing` | `Security` | Dependency | Kiểm tra quyền truy cập object |
+| `Query Processing` | `Transaction & Concurrency` | Dependency | Xin lock, đọc MVCC snapshot |
+| `Query Processing` | `Storage Engine` | Association | Đọc/ghi dữ liệu thực sự |
+| `Query Processing` | `Database Objects & Metadata` | Dependency | Tra cứu catalog, statistics |
+| `Transaction & Concurrency` | `Backup, Recovery & Logging` | Association | WAL trước mỗi thay đổi |
+| `Administration` | `Query Processing` | Dependency | Cung cấp statistics cho optimizer |
+| `Administration` | `Storage Engine` | Dependency | Vacuum, rebuild index, collect stats |
+| `Database Objects & Metadata` | `Storage Engine` | Dependency | Schema để layout record |
+| `Database Objects & Metadata` | `Backup, Recovery & Logging` | Dependency | Object dependency khi restore |
