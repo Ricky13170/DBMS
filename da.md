@@ -1,102 +1,90 @@
-# Class Diagram Level 1 — DBMS High-Level Architecture
+# DBMS High-Level Architecture (Flowchart)
 
-Sơ đồ thể hiện **8 module chính** và mối quan hệ giữa chúng ở mức tổng quan.
-
-> **Relationship legend:**
-> - `*--` Composition (DBMS sở hữu module)
-> - `-->` Association (phụ thuộc thường xuyên)
-> - `..>` Dependency (dùng tạm thời)
-
----
+> **Relationship legend**
+>
+> - **──▶** Main Association (gọi thường xuyên)
+> - **-.-▶** Dependency (sử dụng tạm thời)
+> - **DBMS → Module** : Ownership / Composition (ở mức kiến trúc)
 
 ```mermaid
-classDiagram
-    direction TB
+flowchart TB
 
-    class DBMS {
-    }
+%%========================
+%% Root
+%%========================
 
-    class CommunicationConnectivity {
-        Communication and Connectivity
-    }
+DBMS["DBMS"]
 
-    class Security {
-    }
+%%========================
+%% Layer 1
+%%========================
 
-    class Administration {
-    }
+CC["Communication &<br/>Connectivity"]
+SEC["Security"]
+ADM["Administration"]
 
-    class QueryProcessing {
-        Query Processing
-    }
+%%========================
+%% Layer 2
+%%========================
 
-    class TransactionConcurrency {
-        Transaction and Concurrency
-    }
+QP["Query Processing"]
 
-    class BackupRecoveryLogging {
-        Backup, Recovery and Logging
-    }
+%%========================
+%% Layer 3
+%%========================
 
-    class StorageEngine {
-        Storage Engine
-    }
+TX["Transaction &<br/>Concurrency"]
 
-    class DatabaseObjectsMetadata {
-        Database Objects and Metadata
-    }
+BR["Backup, Recovery<br/>& Logging"]
 
-    %% --- DBMS Composition (explicit diamonds) ---
-    DBMS *-- CommunicationConnectivity
-    DBMS *-- Security
-    DBMS *-- Administration
-    DBMS *-- QueryProcessing
-    DBMS *-- TransactionConcurrency
-    DBMS *-- BackupRecoveryLogging
-    DBMS *-- StorageEngine
-    DBMS *-- DatabaseObjectsMetadata
+%%========================
+%% Layer 4
+%%========================
 
-    %% --- Main request pipeline ---
-    CommunicationConnectivity --> QueryProcessing : dispatches request
+SE["Storage Engine"]
 
-    %% --- Security cross-cutting ---
-    CommunicationConnectivity ..> Security : authenticates
-    QueryProcessing ..> Security : checks privilege
+META["Database Objects<br/>& Metadata"]
 
-    %% --- Query to lower layers ---
-    QueryProcessing ..> TransactionConcurrency : acquires lock
-    QueryProcessing --> StorageEngine : reads/writes data
-    QueryProcessing ..> DatabaseObjectsMetadata : catalog lookup
+%%=================================================
+%% Ownership
+%%=================================================
 
-    %% --- Transaction to WAL ---
-    TransactionConcurrency --> BackupRecoveryLogging : WAL log
+DBMS --> CC
+DBMS --> SEC
+DBMS --> ADM
+DBMS --> QP
+DBMS --> TX
+DBMS --> BR
+DBMS --> SE
+DBMS --> META
 
-    %% --- Administration support ---
-    Administration ..> QueryProcessing : supplies statistics
-    Administration ..> StorageEngine : vacuum, rebuild index
+%%=================================================
+%% Main Request Pipeline
+%%=================================================
 
-    %% --- Metadata support ---
-    DatabaseObjectsMetadata ..> StorageEngine : schema for record layout
-    DatabaseObjectsMetadata ..> BackupRecoveryLogging : object dependency on restore
+CC -->|dispatch request| QP
+
+QP -->|read / write| SE
+
+TX -->|WAL| BR
+
+%%=================================================
+%% Dependencies
+%%=================================================
+
+CC -.->|authenticate| SEC
+
+QP -.->|check privilege| SEC
+
+QP -.->|begin transaction| TX
+
+QP -.->|catalog lookup| META
+
+ADM -.->|optimizer statistics| QP
+
+ADM -.->|vacuum / rebuild index| SE
+
+META -.->|schema layout| SE
+
+META -.->|restore dependency| BR
 ```
-
----
-
-## Tổng hợp Relationships
-
-| Từ | Đến | Loại | Ý nghĩa |
-|---|---|---|---|
-| `DBMS` | `Communication & Connectivity` | Composition | DBMS sở hữu |
-| `DBMS` | `Security` | Composition | DBMS sở hữu |
-| `DBMS` | `Administration` | Composition | DBMS sở hữu |
-| `Communication & Connectivity` | `Query Processing` | Association | Entry point của mọi request |
-| `Communication & Connectivity` | `Security` | Dependency | Xác thực khi connect |
-| `Query Processing` | `Security` | Dependency | Kiểm tra quyền truy cập object |
-| `Query Processing` | `Transaction & Concurrency` | Dependency | Xin lock, đọc MVCC snapshot |
-| `Query Processing` | `Storage Engine` | Association | Đọc/ghi dữ liệu thực sự |
-| `Query Processing` | `Database Objects & Metadata` | Dependency | Tra cứu catalog, statistics |
-| `Transaction & Concurrency` | `Backup, Recovery & Logging` | Association | WAL trước mỗi thay đổi |
-| `Administration` | `Query Processing` | Dependency | Cung cấp statistics cho optimizer |
-| `Administration` | `Storage Engine` | Dependency | Vacuum, rebuild index, collect stats |
-| `Database Objects & Metadata` | `Storage Engine` | Dependency | Schema để layout record |
-| `Database Objects & Metadata` | `Backup, Recovery & Logging` | Dependency | Object dependency khi restore |
