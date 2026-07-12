@@ -1,109 +1,90 @@
-@startuml
-title DBMS High-Level Architecture
+# DBMS High-Level Architecture (Flowchart)
 
-skinparam shadowing false
-skinparam linetype ortho
-skinparam packageStyle rectangle
-skinparam defaultTextAlignment center
-skinparam ArrowThickness 1.2
+> **Relationship legend**
+>
+> - **──▶** Main Association (gọi thường xuyên)
+> - **-.-▶** Dependency (sử dụng tạm thời)
+> - **DBMS → Module** : Ownership / Composition (ở mức kiến trúc)
 
-top to bottom direction
+```mermaid
+flowchart TB
 
-rectangle "DBMS" as DBMS
+%%========================
+%% Root
+%%========================
 
-'==========================
-' Layer 1
-'==========================
+DBMS["DBMS"]
 
-together {
-rectangle "Communication\n&\nConnectivity" as CC
-rectangle "Security" as SEC
-rectangle "Administration" as ADM
-}
+%%========================
+%% Layer 1
+%%========================
 
-'==========================
-' Layer 2
-'==========================
+CC["Communication &<br/>Connectivity"]
+SEC["Security"]
+ADM["Administration"]
 
-rectangle "Query\nProcessing" as QP
+%%========================
+%% Layer 2
+%%========================
 
-'==========================
-' Layer 3
-'==========================
+QP["Query Processing"]
 
-together {
-rectangle "Transaction\n&\nConcurrency" as TX
-rectangle "Backup,\nRecovery\n& Logging" as BR
-}
+%%========================
+%% Layer 3
+%%========================
 
-'==========================
-' Layer 4
-'==========================
+TX["Transaction &<br/>Concurrency"]
 
-together {
-rectangle "Storage\nEngine" as SE
-rectangle "Database Objects\n& Metadata" as META
-}
+BR["Backup, Recovery<br/>& Logging"]
 
-'------------------------------------
-' Hidden links (force layout)
-'------------------------------------
+%%========================
+%% Layer 4
+%%========================
 
-CC -[hidden]- SEC
-SEC -[hidden]- ADM
+SE["Storage Engine"]
 
-TX -[hidden]- BR
+META["Database Objects<br/>& Metadata"]
 
-SE -[hidden]- META
+%%=================================================
+%% Ownership
+%%=================================================
 
-CC -[hidden]down- QP
-QP -[hidden]down- TX
-QP -[hidden]down- SE
+DBMS --> CC
+DBMS --> SEC
+DBMS --> ADM
+DBMS --> QP
+DBMS --> TX
+DBMS --> BR
+DBMS --> SE
+DBMS --> META
 
-'------------------------------------
-' Composition
-'------------------------------------
+%%=================================================
+%% Main Request Pipeline
+%%=================================================
 
-DBMS *-down- CC
-DBMS *-down- SEC
-DBMS *-down- ADM
+CC -->|dispatch request| QP
 
-DBMS *-down- QP
+QP -->|read / write| SE
 
-DBMS *-down- TX
-DBMS *-down- BR
+TX -->|WAL| BR
 
-DBMS *-down- SE
-DBMS *-down- META
+%%=================================================
+%% Dependencies
+%%=================================================
 
-'------------------------------------
-' Main pipeline
-'------------------------------------
+CC -.->|authenticate| SEC
 
-CC --> QP : dispatch request
+QP -.->|check privilege| SEC
 
-QP --> SE : read/write
+QP -.->|begin transaction| TX
 
-TX --> BR : WAL
+QP -.->|catalog lookup| META
 
-'------------------------------------
-' Dependency
-'------------------------------------
+ADM -.->|optimizer statistics| QP
 
-CC ..> SEC : authenticate
+ADM -.->|vacuum / rebuild index| SE
 
-QP ..> SEC : check privilege
+META -.->|schema layout| SE
 
-QP ..> TX : begin transaction
-
-QP ..> META : catalog lookup
-
-ADM ..> QP : optimizer statistics
-
-ADM ..> SE : vacuum / rebuild index
-
-META ..> SE : schema layout
-
-META ..> BR : restore dependency
-
-@enduml
+META -.->|restore dependency| BR
+```
