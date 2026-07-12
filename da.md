@@ -31,22 +31,18 @@ classDiagram
     }
 
     class TransactionConcurrency {
-        <<module>>
         Transaction and Concurrency
     }
 
     class BackupRecoveryLogging {
-        <<module>>
         Backup, Recovery and Logging
     }
 
     class StorageEngine {
-        <<module>>
         Storage Engine
     }
 
     class DatabaseObjectsMetadata {
-        <<module>>
         Database Objects and Metadata
     }
 
@@ -54,6 +50,11 @@ classDiagram
     DBMS *-- CommunicationConnectivity
     DBMS *-- Security
     DBMS *-- Administration
+    DBMS *-- QueryProcessing
+    DBMS *-- TransactionConcurrency
+    DBMS *-- BackupRecoveryLogging
+    DBMS *-- StorageEngine
+    DBMS *-- DatabaseObjectsMetadata
 
     %% --- Main request pipeline ---
     CommunicationConnectivity --> QueryProcessing : dispatches request
