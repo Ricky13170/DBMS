@@ -11,7 +11,7 @@ Sơ đồ thể hiện **8 module chính** và mối quan hệ giữa chúng ở
 
 ```mermaid
 classDiagram
-    direction LR
+    direction TB
 
     class DBMS {
     }
