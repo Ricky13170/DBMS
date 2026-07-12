@@ -17,20 +17,16 @@ classDiagram
     }
 
     class CommunicationConnectivity {
-        <<module>>
         Communication and Connectivity
     }
 
     class Security {
-        <<module>>
     }
 
     class Administration {
-        <<module>>
     }
 
     class QueryProcessing {
-        <<module>>
         Query Processing
     }
 
