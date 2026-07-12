@@ -1,31 +1,53 @@
+# DBMS High-Level Architecture (Flowchart)
+
+> **Relationship legend**
+>
+> - **──▶** Main Association (gọi thường xuyên)
+> - **-.-▶** Dependency (sử dụng tạm thời)
+> - **DBMS → Module** : Ownership / Composition (ở mức kiến trúc)
+
 ```mermaid
 flowchart TB
 
+%%========================
+%% Root
+%%========================
+
 DBMS["DBMS"]
 
-subgraph L1["Layer 1 - Client Services"]
-direction LR
-CC["Communication & Connectivity"]
+%%========================
+%% Layer 1
+%%========================
+
+CC["Communication &<br/>Connectivity"]
 SEC["Security"]
 ADM["Administration"]
-end
 
-subgraph L2["Layer 2 - Query Processing"]
-direction TB
+%%========================
+%% Layer 2
+%%========================
+
 QP["Query Processing"]
-end
 
-subgraph L3["Layer 3 - Transaction Services"]
-direction LR
-TX["Transaction & Concurrency"]
-BR["Backup, Recovery & Logging"]
-end
+%%========================
+%% Layer 3
+%%========================
 
-subgraph L4["Layer 4 - Storage"]
-direction LR
+TX["Transaction &<br/>Concurrency"]
+
+BR["Backup, Recovery<br/>& Logging"]
+
+%%========================
+%% Layer 4
+%%========================
+
 SE["Storage Engine"]
-META["Database Objects & Metadata"]
-end
+
+META["Database Objects<br/>& Metadata"]
+
+%%=================================================
+%% Ownership
+%%=================================================
 
 DBMS --> CC
 DBMS --> SEC
@@ -36,16 +58,33 @@ DBMS --> BR
 DBMS --> SE
 DBMS --> META
 
-CC --> QP
-QP --> SE
-TX --> BR
+%%=================================================
+%% Main Request Pipeline
+%%=================================================
 
-CC -.-> SEC
-QP -.-> SEC
-QP -.-> TX
-QP -.-> META
-ADM -.-> QP
-ADM -.-> SE
-META -.-> SE
-META -.-> BR
+CC -->|dispatch request| QP
+
+QP -->|read / write| SE
+
+TX -->|WAL| BR
+
+%%=================================================
+%% Dependencies
+%%=================================================
+
+CC -.->|authenticate| SEC
+
+QP -.->|check privilege| SEC
+
+QP -.->|begin transaction| TX
+
+QP -.->|catalog lookup| META
+
+ADM -.->|optimizer statistics| QP
+
+ADM -.->|vacuum / rebuild index| SE
+
+META -.->|schema layout| SE
+
+META -.->|restore dependency| BR
 ```
