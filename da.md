@@ -14,7 +14,6 @@ classDiagram
     direction TB
 
     class DBMS {
-        <<system>>
     }
 
     class CommunicationConnectivity {
