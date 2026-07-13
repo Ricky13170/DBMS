@@ -297,3 +297,28 @@ Dưới đây là thống kê toàn bộ thuộc tính và phương thức với
 | **`FileReader`** | Service | - `_file_descriptors: dict[int, object]` | - `__init__()`<br>- `read_block(handle, offset, size) -> bytes` |
 | **`FileWriter`** | Service | - `_file_descriptors: dict[int, object]` | - `__init__()`<br>- `write_block(handle, offset, data) -> None` |
 | **`FileSynchronizer`** | Service | None | - `__init__()`<br>- `fsync(handle) -> None`<br>- `flush_buffers(handle) -> None` |
+
+
+
+```mermaid
+classDiagram
+    direction LR
+
+    %% Sub-group 2 defined
+    class FileHandle {
+        +file_id: int
+        +access_mode: FileAccessMode
+    }
+
+    %% Sub-group 3 defined
+    class FileReader {
+        +read_block(handle: FileHandle, offset: int, size: int) bytes
+    }
+    class FileWriter {
+        +write_block(handle: FileHandle, offset: int, data: bytes) None
+    }
+
+    %% Connection (Dependency)
+    FileReader ..> FileHandle : uses handle as param
+    FileWriter ..> FileHandle : uses handle as param
+```
