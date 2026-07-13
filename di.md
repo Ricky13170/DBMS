@@ -1,3 +1,5 @@
+```mermaid
+
 classDiagram
     direction TB
 
@@ -97,3 +99,4 @@ classDiagram
     DataFile   ..> FileState
     FileHandle ..> FileAccessMode
     FileHandle ..> FileLockMode
+```
