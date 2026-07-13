@@ -55,6 +55,7 @@ classDiagram
     }
 
     IFileLifecycleManager <|.. FileLifecycleManager
+    FileLifecycleManager ..> DataFile : creates/lookups
     DataFile ..> FileType
     DataFile ..> FileState
 ```
@@ -274,6 +275,9 @@ classDiagram
     OpenFileManager *-- OpenFileTable
     OpenFileTable *-- OpenFileEntry
     OpenFileEntry *-- FileHandle
+
+    %% Dependencies
+    FileLifecycleManager ..> DataFile : creates/lookups
 ```
 
 ---
