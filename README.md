@@ -11,18 +11,15 @@ The system is decomposed into 8 core subsystems, each designed with clear interf
 
 ```mermaid
 mindmap
-  root((DBMS)):::rootNode
-    Storage Engine:::layerNode
-    Query Processing:::layerNode
-    Transaction & Concurrency:::layerNode
-    Security:::layerNode
-    Database Object & Metadata:::layerNode
-    Administration:::layerNode
-    Backup, Recovery & Logging:::layerNode
-    Communication & Connectivity:::layerNode
-
-    classDef rootNode fill:#2d3436,color:#ffffff,stroke:#0984e3,stroke-width:3px
-    classDef layerNode fill:#74b9ff,color:#2d3436,stroke:#0984e3,stroke-width:2px
+  root((DBMS))
+    Storage Engine
+    Query Processing
+    Transaction & Concurrency
+    Security
+    Database Object & Metadata
+    Administration
+    Backup, Recovery & Logging
+    Communication & Connectivity
 ```
 
 ---
