@@ -1,85 +1,98 @@
-```mermaid
+# DBMS Layer 1: Architecture Overview
 
+This document provides a high-level overview of the DBMS architecture. The system is decomposed into 8 core global domains.
+
+## Mindmap Representation
+
+The quickest way to grasp the scale of the system.
+
+```mermaid
+mindmap
+  root((DBMS))
+    Storage Engine
+    Query Processing
+    Transaction & Concurrency
+    Security
+    Database Object & Metadata
+    Administration
+    Backup, Recovery & Logging
+    Communication & Connectivity
+```
+
+## Flowchart Representation
+
+A top-down structure representing dependency resolution.
+
+```mermaid
+flowchart TD
+    DBMS[DBMS Architecture]
+    
+    DBMS --> SE[Storage Engine]
+    DBMS --> QP[Query Processing]
+    DBMS --> TC[Transaction & Concurrency]
+    DBMS --> SEC[Security]
+    DBMS --> DOM[Database Object & Metadata]
+    DBMS --> ADMIN[Administration]
+    DBMS --> BRL[Backup, Recovery & Logging]
+    DBMS --> NET[Communication & Connectivity]
+    
+    style DBMS fill:#2d3436,color:#ffffff,stroke:#0984e3,stroke-width:4px
+```
+
+---
+
+## High-level Class Diagram (Layer 1)
+
+Thể hiện 8 hệ thống con như các class (chưa có methods) và các mối quan hệ phụ thuộc giữa chúng ở cấp độ Layer 1.
+
+```mermaid
 classDiagram
     direction TB
 
-    %% ═══════════════════════════════
-    %% FILE MANAGER
-    %% ═══════════════════════════════
-    class IFileReader { <<interface>> }
-    class IFileWriter { <<interface>> }
-    class IFileSynchronizer { <<interface>> }
-    class FileLifecycleManager { [Facade] }
+    class DBMS
 
-    %% ═══════════════════════════════
-    %% PAGE MANAGER
-    %% ═══════════════════════════════
-    class IPageIO { <<interface>> }
-    class IPageReader { <<interface>> }
-    class IPageWriter { <<interface>> }
-    class PageIOInterface { [Adapter/Facade] }
+    class StorageEngine {
+        <<subsystem>>
+    }
+    class QueryProcessing {
+        <<subsystem>>
+    }
+    class TransactionConcurrency {
+        <<subsystem>>
+    }
+    class Security {
+        <<subsystem>>
+    }
+    class DatabaseObjectMetadata {
+        <<subsystem>>
+    }
+    class Administration {
+        <<subsystem>>
+    }
+    class BackupRecoveryLogging {
+        <<subsystem>>
+    }
+    class CommunicationConnectivity {
+        <<subsystem>>
+    }
 
-    %% ═══════════════════════════════
-    %% BUFFER MANAGER
-    %% ═══════════════════════════════
-    class IBufferPoolManager { <<interface>> }
-    class BufferPoolManager { [Facade] }
-    class IReplacementPolicy { <<interface>> }
+    %% DBMS owns all subsystems
+    DBMS *-- StorageEngine
+    DBMS *-- QueryProcessing
+    DBMS *-- TransactionConcurrency
+    DBMS *-- Security
+    DBMS *-- DatabaseObjectMetadata
+    DBMS *-- Administration
+    DBMS *-- BackupRecoveryLogging
+    DBMS *-- CommunicationConnectivity
 
-    %% ═══════════════════════════════
-    %% RECORD MANAGER
-    %% ═══════════════════════════════
-    class IRecordCRUD { <<interface>> }
-    class IRecordSerializer { <<interface>> }
-    class RecordCRUDManager { [Facade] }
-
-    %% ═══════════════════════════════
-    %% ACCESS METHODS
-    %% ═══════════════════════════════
-    class IAccessMethod { <<interface>> }
-    class IIndexScanner { <<interface>> }
-    class BPlusTreeIndex
-    class HashIndex
-
-    %% ═══════════════════════════════
-    %% STORAGE ALLOCATION
-    %% ═══════════════════════════════
-    class ISpaceAllocator { <<interface>> }
-    class ISpaceDeallocator { <<interface>> }
-    class TablespaceManager
-    class SegmentManager
-    class ExtentManager
-
-    %% ── REALIZATIONS (Internal) ──
-    IPageIO <|.. PageIOInterface
-    IBufferPoolManager <|.. BufferPoolManager
-    IRecordCRUD <|.. RecordCRUDManager
-    IAccessMethod <|.. BPlusTreeIndex
-    IAccessMethod <|.. HashIndex
-    ISpaceAllocator <|.. ExtentManager
-
-    %% ══ CROSS-MODULE DEPENDENCIES ══
-
-    %% Page Manager dùng File Manager
-    PageIOInterface o--> IFileReader      : reads blocks
-    PageIOInterface o--> IFileWriter      : writes blocks
-    PageIOInterface o--> IFileSynchronizer: fsyncs
-
-    %% Buffer Manager dùng Page Manager
-    BufferPoolManager o--> IPageIO        : load/flush pages
-
-    %% Record Manager dùng Buffer Manager
-    RecordCRUDManager o--> IBufferPoolManager : pin/unpin pages
-
-    %% Access Methods dùng Buffer Manager
-    BPlusTreeIndex o--> IBufferPoolManager : pin index pages
-    HashIndex      o--> IBufferPoolManager : pin bucket pages
-
-    %% Record + Page dùng Storage Allocation
-    RecordCRUDManager o--> ISpaceAllocator : allocate new pages
-    PageIOInterface   o--> ISpaceAllocator : allocate extents
-
-    %% Storage Allocation hierarchy
-    TablespaceManager o--> SegmentManager  : manages segments
-    SegmentManager    o--> ExtentManager   : allocates extents
+    %% Cross-subsystem dependencies
+    QueryProcessing --> StorageEngine          : fetches data
+    QueryProcessing --> DatabaseObjectMetadata : catalog lookup
+    TransactionConcurrency --> StorageEngine   : controls writes via WAL
+    BackupRecoveryLogging --> StorageEngine    : reads WAL & pages
+    CommunicationConnectivity --> QueryProcessing     : dispatches queries
+    CommunicationConnectivity --> Security            : validates sessions
+    Security --> DatabaseObjectMetadata               : reads privileges
+    Administration --> StorageEngine                  : manages files/config
 ```
