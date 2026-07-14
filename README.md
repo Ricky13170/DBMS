@@ -24,6 +24,7 @@ mindmap
     classDef rootNode fill:#2d3436,color:#ffffff,stroke:#0984e3,stroke-width:3px
     classDef layerNode fill:#74b9ff,color:#2d3436,stroke:#0984e3,stroke-width:2px
 ```
+
 ---
 
 ## Design Principles
