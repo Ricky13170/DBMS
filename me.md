@@ -419,3 +419,76 @@ flowchart TD
     %% Style để khối trung tâm nổi bật hơn
     style DBMS fill:#2d3436,color:#ffffff,stroke:#0984e3,stroke-width:4px
 ```
+
+
+
+```mermaid
+flowchart LR
+    %% Định dạng CSS cho các Node
+    classDef sys fill:#2d3436,color:#fff,stroke:#0984e3,stroke-width:3px,font-weight:bold
+    classDef module fill:#74b9ff,color:#2d3436,stroke:#0984e3,stroke-width:2px,font-weight:bold
+    classDef comp fill:#dfe6e9,color:#2d3436,stroke:#b2bec3,stroke-width:1px
+
+    %% ========================================
+    %% 1. STORAGE ENGINE
+    %% ========================================
+    subgraph SE [STORAGE ENGINE LAYER 3]
+        direction TB
+        
+        M_FM[File Manager]:::module
+        M_FM --> FM_1(OS File Wrapper):::comp
+        M_FM --> FM_2(Data File Registry):::comp
+        
+        M_PM[Page Manager]:::module
+        M_PM --> PM_1(Page Formatter):::comp
+        M_PM --> PM_2(Slot Directory Manager):::comp
+        
+        M_BM[Buffer Manager]:::module
+        M_BM --> BM_1(Frame Manager):::comp
+        M_BM --> BM_2(Replacement Policy):::comp
+        M_BM --> BM_3(Dirty Page Writer):::comp
+        
+        M_RM[Record Manager]:::module
+        M_RM --> RM_1(Record Layout Manager):::comp
+        M_RM --> RM_2(RID Generator):::comp
+        
+        M_AM[Access Methods]:::module
+        M_AM --> AM_1(B+Tree Manager):::comp
+        M_AM --> AM_2(Hash Index Manager):::comp
+
+        M_SA[Storage Allocation]:::module
+        M_SA --> SA_1(Tablespace Manager):::comp
+        M_SA --> SA_2(Extent Manager):::comp
+    end
+
+    %% ========================================
+    %% 2. QUERY PROCESSING
+    %% ========================================
+    subgraph QP [QUERY PROCESSING LAYER 3]
+        direction TB
+        
+        M_SP[SQL Parser]:::module
+        M_SP --> SP_1(Lexical Analyzer):::comp
+        M_SP --> SP_2(Syntax Analyzer):::comp
+        
+        M_QV[Query Validation]:::module
+        M_QV --> QV_1(Semantic Validator):::comp
+        M_QV --> QV_2(Catalog Lookup):::comp
+        
+        M_QO[Query Optimizer]:::module
+        M_QO --> QO_1(Rule-Based Optimizer):::comp
+        M_QO --> QO_2(Cost-Based Optimizer):::comp
+        M_QO --> QO_3(Physical Planner):::comp
+        
+        M_QE[Query Execution]:::module
+        M_QE --> QE_1(Operator Engine):::comp
+        M_QE --> QE_2(Pipeline Manager):::comp
+        
+        M_RP[Result Processing]:::module
+        M_RP --> RP_1(Result Set Builder):::comp
+        M_RP --> RP_2(Cursor Manager):::comp
+    end
+
+    %% Mối liên kết giao tiếp chính giữa 2 Core Systems
+    QP -. "Request physical data" .-> SE
+```
