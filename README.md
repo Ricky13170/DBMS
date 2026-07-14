@@ -13,50 +13,14 @@ The system is decomposed into 8 core subsystems, each designed with clear interf
 mindmap
   root((DBMS))
     Storage Engine
-      File Manager
-      Page Manager
-      Buffer Manager
-      Record Manager
-      Access Methods
-      Storage Allocation
     Query Processing
-      SQL Parser
-      Query Validation
-      Query Optimizer
-      Query Execution
-      Result Processing
     Transaction & Concurrency
-      Transaction Manager
-      Lock Manager
-      Deadlock Handler
-      Isolation Manager
-      MVCC Manager
     Security
-      Authentication
-      Authorization
-      Encryption
-      Auditing
     Database Object & Metadata
-      Schema Manager
-      Table Manager
-      Index Manager
-      Catalog Manager
     Administration
-      Monitoring
-      Configuration
-      Database Maintenance
     Backup, Recovery & Logging
-      Transaction Logging
-      Checkpoint Manager
-      Recovery Manager
-      Backup & Restore Manager
     Communication & Connectivity
-      Connection Manager
-      Session Manager
-      Protocol Handler
-      Request Dispatcher
 ```
-
 ---
 
 ## Design Principles
