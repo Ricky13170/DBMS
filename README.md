@@ -386,3 +386,36 @@ Sơ đồ Class Diagram Level 1 thể hiện rõ nét triết lý **Dependency I
     *   Khi `OperatorExecutor` duyệt dữ liệu, nó sẽ liên lạc với `LockManager` để xin cấp khóa (ví dụ: xin khóa đọc Shared Lock cho Row ID tương ứng). Nếu thành công, nó mới tiếp tục gọi `IAccessMethod` nạp trang. Việc này tách biệt hoàn toàn logic kiểm soát đồng thời khỏi logic lưu trữ.
 5.  **Bảo vệ toàn vẹn qua `IConstraintValidator`:**
     *   Khi Executor làm nhiệm vụ ghi (như INSERT), nó sẽ gọi giao diện `IConstraintValidator`. Tùy theo thiết lập bảng, `ForeignKeyValidator` hay `PrimaryKeyValidator` sẽ được nạp vào để kiểm duyệt điều kiện logic, bảm đảm tính Integrity.
+
+
+
+
+```mermaid
+mindmap
+  root((DBMS))
+    Storage Engine
+    Query Processing
+    Transaction & Concurrency
+    Security
+    Database Object & Metadata
+    Administration
+    Backup, Recovery & Logging
+    Communication & Connectivity
+```
+
+```mermaid
+flowchart TD
+    DBMS[DBMS Architecture]
+    
+    DBMS --> SE[Storage Engine]
+    DBMS --> QP[Query Processing]
+    DBMS --> TC[Transaction & Concurrency]
+    DBMS --> SEC[Security]
+    DBMS --> DOM[Database Object & Metadata]
+    DBMS --> ADMIN[Administration]
+    DBMS --> BRL[Backup, Recovery & Logging]
+    DBMS --> NET[Communication & Connectivity]
+    
+    %% Style để khối trung tâm nổi bật hơn
+    style DBMS fill:#2d3436,color:#ffffff,stroke:#0984e3,stroke-width:4px
+```
