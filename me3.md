@@ -1,250 +1,299 @@
-# File Management — Sequence Diagrams
+# Detailed Class Diagram — File Manager (Storage Engine)
 
-> **Phương pháp:** Bottom-up — từng operation nhỏ trước, gộp dần lên Feature-level.
->
-> **Participants lấy từ Layer 4 File Manager:**
-> - `FileLifecycleManager` (Facade — F1)
-> - `OpenFileManager` (F2)
-> - `OpenFileTable` / `OpenFileEntry` / `FileHandle` (F2 Entities)
-> - `DataFile` (F1 Entity)
-> - `FileSynchronizer` (F4)
-> - `FileReader` / `FileWriter` (F3)
+Tài liệu này đặc tả chi tiết Layer 4 cho sub-module **File Manager**, bao gồm đầy đủ thuộc tính (properties), phương thức (methods), kiểu dữ liệu (Python type hint), và quan hệ giữa các lớp.
 
 ---
 
-## Operation 1: createFile()
+## 1. Chi Tiết Các Sub-Groups
 
-**Kịch bản:** DBMS cần tạo một file dữ liệu vật lý mới (ví dụ khi tạo Table mới).
+### Sub-Group 1: File Lifecycle
+Chịu trách nhiệm tạo mới, xóa bỏ, đổi tên và kiểm soát trạng thái vật lý của các file dữ liệu trên hệ thống.
 
-**Happy Path:**
 ```mermaid
-sequenceDiagram
-    autonumber
-    actor Caller as Caller (TableManager)
-    participant FLM as FileLifecycleManager
-    participant DF as DataFile
-    participant OFM as OpenFileManager
-    participant OFT as OpenFileTable
-    participant FS as FileSynchronizer
+classDiagram
+    class FileType {
+        <<enumeration>>
+        DATA
+        LOG
+        TEMP
+    }
+    class FileState {
+        <<enumeration>>
+        OPEN
+        CLOSED
+        CORRUPTED
+    }
+    class DataFile {
+        <<entity>>
+        +file_id: int
+        +path: str
+        +file_type: FileType
+        +state: FileState
+        +size_bytes: int
+        +__init__(file_id: int, path: str, file_type: FileType, state: FileState, size_bytes: int)
+    }
+    class IFileLifecycleManager {
+        <<interface>>
+        +create_file(path: str, file_type: FileType) DataFile
+        +open_file(file_id: int, mode: FileAccessMode) FileHandle
+        +close_file(handle: FileHandle) None
+        +delete_file(file_id: int) None
+        +rename_file(file_id: int, new_path: str) None
+    }
+    class FileLifecycleManager {
+        -_open_file_mgr: IOpenFileManager
+        -_reader: IFileReader
+        -_writer: IFileWriter
+        -_synchronizer: IFileSynchronizer
+        +__init__(open_file_mgr: IOpenFileManager, reader: IFileReader, writer: IFileWriter, synchronizer: IFileSynchronizer)
+        +create_file(path: str, file_type: FileType) DataFile
+        +open_file(file_id: int, mode: FileAccessMode) FileHandle
+        +close_file(handle: FileHandle) None
+        +delete_file(file_id: int) None
+        +rename_file(file_id: int, new_path: str) None
+        -_lookup_data_file(file_id: int) DataFile
+    }
 
-    Caller->>FLM: createFile(path, fileType)
-
-    FLM->>DF: new DataFile(path, fileType, state=CREATING)
-    FLM->>FS: allocateOnDisk(path)
-    FS-->>FLM: ok
-
-    FLM->>DF: setState(OPEN)
-
-    FLM->>OFM: register(dataFile, accessMode=READ_WRITE)
-    OFM->>OFT: addEntry(dataFile)
-    OFT->>OFT: new OpenFileEntry(dataFile, accessMode)
-    OFT-->>OFM: fileHandle (FileHandle)
-    OFM-->>FLM: fileHandle
-
-    FLM-->>Caller: fileHandle
+    IFileLifecycleManager <|.. FileLifecycleManager
+    FileLifecycleManager ..> DataFile : creates/lookups
+    DataFile ..> FileType
+    DataFile ..> FileState
 ```
 
-**Sad Path — File đã tồn tại:**
+### Sub-Group 2: File Open/Close Management
+Quản lý việc ánh xạ các file đang mở (OpenFileTable), cơ chế đếm số lần sử dụng (reference counting), và cơ chế khóa file nhằm đảm bảo tính toàn vẹn đa luồng/tiến trình.
+
 ```mermaid
-sequenceDiagram
-    autonumber
-    actor Caller as Caller (TableManager)
-    participant FLM as FileLifecycleManager
-    participant FS as FileSynchronizer
+classDiagram
+    class FileAccessMode {
+        <<enumeration>>
+        READ_ONLY
+        WRITE_ONLY
+        READ_WRITE
+    }
+    class FileLockMode {
+        <<enumeration>>
+        SHARED
+        EXCLUSIVE
+    }
+    class FileHandle {
+        <<entity>>
+        +handle_id: int
+        +file_id: int
+        +access_mode: FileAccessMode
+        +lock_mode: FileLockMode
+        +is_valid: bool
+        +__init__(handle_id: int, file_id: int, access_mode: FileAccessMode, lock_mode: FileLockMode)
+        +invalidate() None
+    }
+    class OpenFileEntry {
+        <<entity>>
+        +file_id: int
+        +handle: FileHandle
+        +open_count: int
+        +last_accessed: int
+        +__init__(file_id: int, handle: FileHandle)
+        +increment_open_count() None
+        +decrement_open_count() int
+    }
+    class OpenFileTable {
+        <<entity>>
+        -_entries: dict~int, OpenFileEntry~
+        +__init__()
+        +has_entry(file_id: int) bool
+        +add_entry(entry: OpenFileEntry) None
+        +get_entry(file_id: int) OpenFileEntry
+        +remove_entry(file_id: int) None
+    }
+    class IOpenFileManager {
+        <<interface>>
+        +get_handle(file_id: int) FileHandle
+        +is_open(file_id: int) bool
+        +register_handle(handle: FileHandle) None
+        +increment_open_count(file_id: int) FileHandle
+        +release_handle(handle: FileHandle) bool
+        +get_open_count() int
+        +force_close_all() None
+    }
+    class OpenFileManager {
+        -_table: OpenFileTable
+        -_max_open: int
+        -_next_handle_id: int
+        +__init__(max_open: int)
+        +get_handle(file_id: int) FileHandle
+        +is_open(file_id: int) bool
+        +register_handle(handle: FileHandle) None
+        +increment_open_count(file_id: int) FileHandle
+        +release_handle(handle: FileHandle) bool
+        +get_open_count() int
+        +force_close_all() None
+        -_register_handle(handle: FileHandle) None
+        -_unregister_handle(handle: FileHandle) None
+    }
 
-    Caller->>FLM: createFile(path, fileType)
-    FLM->>FS: allocateOnDisk(path)
-    FS-->>FLM: ❌ FileAlreadyExistsException
-
-    FLM-->>Caller: ❌ throw FileAlreadyExistsException
+    IOpenFileManager <|.. OpenFileManager
+    OpenFileManager *-- OpenFileTable
+    OpenFileTable *-- OpenFileEntry
+    OpenFileEntry *-- FileHandle
+    FileHandle ..> FileAccessMode
+    FileHandle ..> FileLockMode
 ```
 
-**Method signatures suy ra từ sequence:**
-| Class | Method |
-|---|---|
-| `FileLifecycleManager` | `createFile(path: String, type: FileType): FileHandle` |
-| `FileSynchronizer` | `allocateOnDisk(path: String): void` |
-| `OpenFileManager` | `register(file: DataFile, mode: FileAccessMode): FileHandle` |
-| `OpenFileTable` | `addEntry(file: DataFile): OpenFileEntry` |
+### Sub-Group 3: Data Read/Write
+Xử lý các thao tác đọc và ghi dữ liệu mức tối thấp (block-level read/write) tại một offset cụ thể.
+
+```mermaid
+classDiagram
+    class IFileReader {
+        <<interface>>
+        +read_block(handle: FileHandle, offset: int, size: int) bytes
+    }
+    class FileReader {
+        -_file_descriptors: dict~int, object~
+        +__init__()
+        +read_block(handle: FileHandle, offset: int, size: int) bytes
+    }
+    class IFileWriter {
+        <<interface>>
+        +write_block(handle: FileHandle, offset: int, data: bytes) None
+    }
+    class FileWriter {
+        -_file_descriptors: dict~int, object~
+        +__init__()
+        +write_block(handle: FileHandle, offset: int, data: bytes) None
+    }
+
+    IFileReader <|.. FileReader
+    IFileWriter <|.. FileWriter
+```
+
+### Sub-Group 4: Disk Synchronization
+Đảm bảo cơ chế đồng bộ hóa dữ liệu từ bộ nhớ đệm (OS cache) xuống thiết bị lưu trữ vật lý nhằm đáp ứng tiêu chí ACID (phần Durability).
+
+```mermaid
+classDiagram
+    class IFileSynchronizer {
+        <<interface>>
+        +fsync(handle: FileHandle) None
+        +flush_buffers(handle: FileHandle) None
+    }
+    class FileSynchronizer {
+        +__init__()
+        +fsync(handle: FileHandle) None
+        +flush_buffers(handle: FileHandle) None
+    }
+
+    IFileSynchronizer <|.. FileSynchronizer
+```
 
 ---
 
-## Operation 2: openFile()
+## 2. Toàn Bộ Detailed Class Diagram (Gộp & Quan Hệ Hoàn Chỉnh)
 
-**Kịch bản:** DBMS mở lại một file vật lý đã tồn tại để chuẩn bị đọc/ghi dữ liệu.
+Sơ đồ quan hệ phụ thuộc giữa các lớp thực thi và interface trong cấu trúc File Manager:
 
-**Happy Path:**
 ```mermaid
-sequenceDiagram
-    autonumber
-    actor Caller as Caller (BufferManager)
-    participant FLM as FileLifecycleManager
-    participant OFM as OpenFileManager
-    participant OFT as OpenFileTable
-    participant OFE as OpenFileEntry
-    participant DF as DataFile
+classDiagram
+    direction TB
 
-    Caller->>FLM: openFile(path, accessMode, lockMode)
+    %% File Lifecycle
+    class DataFile {
+        +file_id: int
+        +path: str
+        +file_type: FileType
+        +state: FileState
+        +size_bytes: int
+    }
+    class FileLifecycleManager {
+        -_open_file_mgr: IOpenFileManager
+        -_reader: IFileReader
+        -_writer: IFileWriter
+        -_synchronizer: IFileSynchronizer
+        +create_file(path: str, file_type: FileType) DataFile
+        +open_file(file_id: int, mode: FileAccessMode) FileHandle
+        +close_file(handle: FileHandle) None
+        +delete_file(file_id: int) None
+        +rename_file(file_id: int, new_path: str) None
+    }
 
-    FLM->>OFM: isAlreadyOpen(path)
-    OFM->>OFT: findEntry(path)
-    OFT-->>OFM: null (chưa mở)
-    OFM-->>FLM: false
+    %% Open/Close Manager
+    class FileHandle {
+        +handle_id: int
+        +file_id: int
+        +access_mode: FileAccessMode
+        +lock_mode: FileLockMode
+        +is_valid: bool
+    }
+    class OpenFileEntry {
+        +file_id: int
+        +handle: FileHandle
+        +open_count: int
+        +last_accessed: int
+    }
+    class OpenFileTable {
+        -entries: dict~int, OpenFileEntry~
+    }
+    class OpenFileManager {
+        -_table: OpenFileTable
+        -_max_open: int
+        -_next_handle_id: int
+    }
 
-    FLM->>DF: load(path)
-    note over DF: Đọc metadata header của file<br/>từ hệ điều hành
-    DF-->>FLM: dataFile (state=OPEN)
+    %% Read/Write
+    class FileReader {
+        -_file_descriptors: dict~int, object~
+    }
+    class FileWriter {
+        -_file_descriptors: dict~int, object~
+    }
 
-    FLM->>OFM: register(dataFile, accessMode, lockMode)
-    OFM->>OFT: addEntry(dataFile, accessMode, lockMode)
-    OFT->>OFE: new OpenFileEntry(dataFile, accessMode, lockMode)
-    OFT-->>OFM: fileHandle
-    OFM-->>FLM: fileHandle
+    %% Synchronizer
+    class FileSynchronizer {
+    }
 
-    FLM-->>Caller: fileHandle
+    %% Interfaces
+    class IFileLifecycleManager { <<interface>> }
+    class IOpenFileManager { <<interface>> }
+    class IFileReader { <<interface>> }
+    class IFileWriter { <<interface>> }
+    class IFileSynchronizer { <<interface>> }
+
+    %% Realizations
+    IFileLifecycleManager <|.. FileLifecycleManager
+    IOpenFileManager <|.. OpenFileManager
+    IFileReader <|.. FileReader
+    IFileWriter <|.. FileWriter
+    IFileSynchronizer <|.. FileSynchronizer
+
+    %% Aggregations (Facade dependency Injection)
+    FileLifecycleManager o--> IOpenFileManager : delegates handle track
+    FileLifecycleManager o--> IFileReader      : delegates reads
+    FileLifecycleManager o--> IFileWriter      : delegates writes
+    FileLifecycleManager o--> IFileSynchronizer: delegates syncs
+
+    %% Compositions
+    OpenFileManager *-- OpenFileTable
+    OpenFileTable *-- OpenFileEntry
+    OpenFileEntry *-- FileHandle
+
+    %% Dependencies
+    FileLifecycleManager ..> DataFile : creates/lookups
 ```
-
-**Happy Path — File đã được mở trước đó (Reuse Handle):**
-```mermaid
-sequenceDiagram
-    autonumber
-    actor Caller as Caller (BufferManager)
-    participant FLM as FileLifecycleManager
-    participant OFM as OpenFileManager
-    participant OFT as OpenFileTable
-
-    Caller->>FLM: openFile(path, accessMode, lockMode)
-
-    FLM->>OFM: isAlreadyOpen(path)
-    OFM->>OFT: findEntry(path)
-    OFT-->>OFM: existingEntry (đã có)
-    OFM-->>FLM: true
-
-    FLM->>OFM: getHandle(path)
-    OFM->>OFT: findEntry(path)
-    OFT-->>OFM: fileHandle
-    OFM-->>FLM: fileHandle
-
-    FLM-->>Caller: fileHandle (tái sử dụng)
-    note over Caller,FLM: Không tạo OS file handle mới<br/>tránh lãng phí tài nguyên
-```
-
-**Sad Path — File không tồn tại:**
-```mermaid
-sequenceDiagram
-    autonumber
-    actor Caller as Caller (BufferManager)
-    participant FLM as FileLifecycleManager
-    participant DF as DataFile
-
-    Caller->>FLM: openFile(path, accessMode, lockMode)
-    FLM->>DF: load(path)
-    DF-->>FLM: ❌ FileNotFoundException
-
-    FLM-->>Caller: ❌ throw FileNotFoundException
-```
-
-**Method signatures suy ra từ sequence:**
-| Class | Method |
-|---|---|
-| `FileLifecycleManager` | `openFile(path: String, mode: FileAccessMode, lock: FileLockMode): FileHandle` |
-| `OpenFileManager` | `isAlreadyOpen(path: String): boolean` |
-| `OpenFileManager` | `getHandle(path: String): FileHandle` |
-| `OpenFileTable` | `findEntry(path: String): OpenFileEntry?` |
-| `DataFile` | `load(path: String): DataFile` |
 
 ---
 
-## Operation 3: deleteFile()
+## 3. Bản Đồ Properties & Methods Chi Tiết
 
-**Kịch bản:** DBMS xóa một file dữ liệu (ví dụ DROP TABLE). Cần đảm bảo file không còn ai đang mở trước khi xóa khỏi đĩa.
+Dưới đây là thống kê toàn bộ thuộc tính và phương thức với kiểu dữ liệu của File Manager:
 
-**Happy Path:**
-```mermaid
-sequenceDiagram
-    autonumber
-    actor Caller as Caller (TableManager)
-    participant FLM as FileLifecycleManager
-    participant OFM as OpenFileManager
-    participant FS as FileSynchronizer
-
-    Caller->>FLM: deleteFile(path)
-
-    FLM->>OFM: isAlreadyOpen(path)
-    OFM-->>FLM: false
-
-    FLM->>FS: deleteFromDisk(path)
-    FS-->>FLM: ok
-
-    FLM-->>Caller: true (Success)
-```
-
-**Sad Path — Đang có người dùng:**
-```mermaid
-sequenceDiagram
-    autonumber
-    actor Caller as Caller (TableManager)
-    participant FLM as FileLifecycleManager
-    participant OFM as OpenFileManager
-
-    Caller->>FLM: deleteFile(path)
-
-    FLM->>OFM: isAlreadyOpen(path)
-    OFM-->>FLM: true
-
-    FLM-->>Caller: ❌ throw FileInUseException
-```
-
-**Method signatures suy ra từ sequence:**
-| Class | Method |
-|---|---|
-| `FileLifecycleManager` | `deleteFile(path: String): boolean` |
-| `FileSynchronizer` | `deleteFromDisk(path: String): void` |
-
----
-
-## Operation 4: allocateSpace()
-
-**Kịch bản:** Trang dữ liệu đã đầy, Page Manager gọi xuống xin thêm dung lượng (cấp phát mảng bytes mới) vào cuối file vật lý.
-
-**Happy Path:**
-```mermaid
-sequenceDiagram
-    autonumber
-    actor Caller as Caller (PageManager)
-    participant FLM as FileLifecycleManager
-    participant OFT as OpenFileTable
-    participant FS as FileSynchronizer
-
-    Caller->>FLM: allocateSpace(fileHandle, sizeInBytes)
-
-    FLM->>OFT: validateHandle(fileHandle)
-    OFT-->>FLM: ok
-
-    FLM->>FS: expandFile(fileHandle, sizeInBytes)
-    FS-->>FLM: newOffset (Long)
-
-    FLM-->>Caller: newOffset
-```
-
-**Sad Path — Hết dung lượng đĩa:**
-```mermaid
-sequenceDiagram
-    autonumber
-    actor Caller as Caller (PageManager)
-    participant FLM as FileLifecycleManager
-    participant FS as FileSynchronizer
-
-    Caller->>FLM: allocateSpace(fileHandle, sizeInBytes)
-    FLM->>FS: expandFile(fileHandle, sizeInBytes)
-    FS-->>FLM: ❌ OutOfSpaceException
-
-    FLM-->>Caller: ❌ throw OutOfSpaceException
-```
-
-**Method signatures suy ra từ sequence:**
-| Class | Method |
-|---|---|
-| `FileLifecycleManager` | `allocateSpace(handle: FileHandle, size: Long): Long` |
-| `OpenFileTable` | `validateHandle(handle: FileHandle): boolean` |
-| `FileSynchronizer` | `expandFile(handle: FileHandle, size: Long): Long` |
+| Class / Entity | Type | Properties | Methods & Signatures |
+| :--- | :--- | :--- | :--- |
+| **`DataFile`** | Entity | - `file_id: int`<br>- `path: str`<br>- `file_type: FileType`<br>- `state: FileState`<br>- `size_bytes: int` | - `__init__(file_id, path, file_type, state, size_bytes)` |
+| **`FileHandle`** | Entity | - `handle_id: int`<br>- `file_id: int`<br>- `access_mode: FileAccessMode`<br>- `lock_mode: FileLockMode`<br>- `is_valid: bool` | - `__init__(handle_id, file_id, access_mode, lock_mode)`<br>- `invalidate() -> None` |
+| **`OpenFileEntry`** | Entity | - `file_id: int`<br>- `handle: FileHandle`<br>- `open_count: int`<br>- `last_accessed: int` | - `__init__(file_id, handle)`<br>- `increment_open_count() -> None`<br>- `decrement_open_count() -> int` |
+| **`OpenFileTable`** | Entity | - `_entries: dict[int, OpenFileEntry]` | - `__init__()`<br>- `has_entry(file_id) -> bool`<br>- `add_entry(entry)`<br>- `get_entry(file_id) -> OpenFileEntry`<br>- `remove_entry(file_id)` |
+| **`FileLifecycleManager`** | Service | - `_open_file_mgr: IOpenFileManager`<br>- `_reader: IFileReader`<br>- `_writer: IFileWriter`<br>- `_synchronizer: IFileSynchronizer` | - `__init__(open_file_mgr, reader, writer, synchronizer)`<br>- `create_file(path, file_type) -> DataFile`<br>- `open_file(file_id, mode) -> FileHandle`<br>- `close_file(handle) -> None`<br>- `delete_file(file_id) -> None`<br>- `rename_file(file_id, new_path) -> None`<br>- `_lookup_data_file(file_id) -> DataFile` |
+| **`OpenFileManager`** | Service | - `_table: OpenFileTable`<br>- `_max_open: int`<br>- `_next_handle_id: int` | - `__init__(max_open)`<br>- `get_handle(file_id) -> FileHandle`<br>- `is_open(file_id) -> bool`<br>- `register_handle(handle) -> None`<br>- `increment_open_count(file_id) -> FileHandle`<br>- `release_handle(handle) -> bool`<br>- `get_open_count() -> int`<br>- `force_close_all() -> None`<br>- `_register_handle(handle) -> None`<br>- `_unregister_handle(handle) -> None` |
+| **`FileReader`** | Service | - `_file_descriptors: dict[int, object]` | - `__init__()`<br>- `read_block(handle, offset, size) -> bytes` |
+| **`FileWriter`** | Service | - `_file_descriptors: dict[int, object]` | - `__init__()`<br>- `write_block(handle, offset, data) -> None` |
+| **`FileSynchronizer`** | Service | None | - `__init__()`<br>- `fsync(handle) -> None`<br>- `flush_buffers(handle) -> None` |
