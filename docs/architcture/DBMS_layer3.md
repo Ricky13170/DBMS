@@ -7,9 +7,9 @@ This document breaks the detailed Layer-3 operational architecture down for all 
 ## 1. Storage Engine
 ```mermaid
 graph LR
-    classDef layer1 fill:#99ccff,stroke:#333,stroke-width:1.5px,font-weight:bold;
-    classDef layer2 fill:#ccffcc,stroke:#333,stroke-width:1px;
-    classDef layer3 fill:#fff3cd,stroke:#333,stroke-width:1px;
+    classDef layer1 fill:#1f497d,color:#ffffff,stroke:#0b5394,stroke-width:2px,font-weight:bold,rx:8,ry:8;
+    classDef layer2 fill:#38761d,color:#ffffff,stroke:#274e13,stroke-width:2px,rx:8,ry:8;
+    classDef layer3 fill:#b45f06,color:#ffffff,stroke:#783f04,stroke-width:2px,font-style:italic,rx:8,ry:8;
 
     ROOT[Storage Engine]:::layer1
 
@@ -62,9 +62,9 @@ graph LR
 ## 2. Query Processing
 ```mermaid
 graph LR
-    classDef layer1 fill:#99ccff,stroke:#333,stroke-width:1.5px,font-weight:bold;
-    classDef layer2 fill:#ccffcc,stroke:#333,stroke-width:1px;
-    classDef layer3 fill:#fff3cd,stroke:#333,stroke-width:1px;
+    classDef layer1 fill:#1f497d,color:#ffffff,stroke:#0b5394,stroke-width:2px,font-weight:bold,rx:8,ry:8;
+    classDef layer2 fill:#38761d,color:#ffffff,stroke:#274e13,stroke-width:2px,rx:8,ry:8;
+    classDef layer3 fill:#b45f06,color:#ffffff,stroke:#783f04,stroke-width:2px,font-style:italic,rx:8,ry:8;
 
     ROOT[Query Processing]:::layer1
 
@@ -110,9 +110,9 @@ graph LR
 ## 3. Transaction & Concurrency
 ```mermaid
 graph LR
-    classDef layer1 fill:#99ccff,stroke:#333,stroke-width:1.5px,font-weight:bold;
-    classDef layer2 fill:#ccffcc,stroke:#333,stroke-width:1px;
-    classDef layer3 fill:#fff3cd,stroke:#333,stroke-width:1px;
+    classDef layer1 fill:#1f497d,color:#ffffff,stroke:#0b5394,stroke-width:2px,font-weight:bold,rx:8,ry:8;
+    classDef layer2 fill:#38761d,color:#ffffff,stroke:#274e13,stroke-width:2px,rx:8,ry:8;
+    classDef layer3 fill:#b45f06,color:#ffffff,stroke:#783f04,stroke-width:2px,font-style:italic,rx:8,ry:8;
 
     ROOT[Transaction & Concurrency]:::layer1
 
@@ -156,9 +156,9 @@ graph LR
 ## 4. Database Object & Metadata
 ```mermaid
 graph LR
-    classDef layer1 fill:#99ccff,stroke:#333,stroke-width:1.5px,font-weight:bold;
-    classDef layer2 fill:#ccffcc,stroke:#333,stroke-width:1px;
-    classDef layer3 fill:#fff3cd,stroke:#333,stroke-width:1px;
+    classDef layer1 fill:#1f497d,color:#ffffff,stroke:#0b5394,stroke-width:2px,font-weight:bold,rx:8,ry:8;
+    classDef layer2 fill:#38761d,color:#ffffff,stroke:#274e13,stroke-width:2px,rx:8,ry:8;
+    classDef layer3 fill:#b45f06,color:#ffffff,stroke:#783f04,stroke-width:2px,font-style:italic,rx:8,ry:8;
 
     ROOT[Database Object & Metadata]:::layer1
 
@@ -244,9 +244,9 @@ graph LR
 ## 5. Security
 ```mermaid
 graph LR
-    classDef layer1 fill:#99ccff,stroke:#333,stroke-width:1.5px,font-weight:bold;
-    classDef layer2 fill:#ccffcc,stroke:#333,stroke-width:1px;
-    classDef layer3 fill:#fff3cd,stroke:#333,stroke-width:1px;
+    classDef layer1 fill:#1f497d,color:#ffffff,stroke:#0b5394,stroke-width:2px,font-weight:bold,rx:8,ry:8;
+    classDef layer2 fill:#38761d,color:#ffffff,stroke:#274e13,stroke-width:2px,rx:8,ry:8;
+    classDef layer3 fill:#b45f06,color:#ffffff,stroke:#783f04,stroke-width:2px,font-style:italic,rx:8,ry:8;
 
     ROOT[Security]:::layer1
 
@@ -297,9 +297,9 @@ graph LR
 ## 6. Administration
 ```mermaid
 graph LR
-    classDef layer1 fill:#99ccff,stroke:#333,stroke-width:1.5px,font-weight:bold;
-    classDef layer2 fill:#ccffcc,stroke:#333,stroke-width:1px;
-    classDef layer3 fill:#fff3cd,stroke:#333,stroke-width:1px;
+    classDef layer1 fill:#1f497d,color:#ffffff,stroke:#0b5394,stroke-width:2px,font-weight:bold,rx:8,ry:8;
+    classDef layer2 fill:#38761d,color:#ffffff,stroke:#274e13,stroke-width:2px,rx:8,ry:8;
+    classDef layer3 fill:#b45f06,color:#ffffff,stroke:#783f04,stroke-width:2px,font-style:italic,rx:8,ry:8;
 
     ROOT[Administration]:::layer1
 
@@ -349,9 +349,9 @@ graph LR
 ## 7. Backup, Recovery & Logging
 ```mermaid
 graph LR
-    classDef layer1 fill:#99ccff,stroke:#333,stroke-width:1.5px,font-weight:bold;
-    classDef layer2 fill:#ccffcc,stroke:#333,stroke-width:1px;
-    classDef layer3 fill:#fff3cd,stroke:#333,stroke-width:1px;
+    classDef layer1 fill:#1f497d,color:#ffffff,stroke:#0b5394,stroke-width:2px,font-weight:bold,rx:8,ry:8;
+    classDef layer2 fill:#38761d,color:#ffffff,stroke:#274e13,stroke-width:2px,rx:8,ry:8;
+    classDef layer3 fill:#b45f06,color:#ffffff,stroke:#783f04,stroke-width:2px,font-style:italic,rx:8,ry:8;
 
     ROOT[Backup, Recovery & Logging]:::layer1
 
@@ -401,9 +401,9 @@ graph LR
 ## 8. Communication & Connectivity
 ```mermaid
 graph LR
-    classDef layer1 fill:#99ccff,stroke:#333,stroke-width:1.5px,font-weight:bold;
-    classDef layer2 fill:#ccffcc,stroke:#333,stroke-width:1px;
-    classDef layer3 fill:#fff3cd,stroke:#333,stroke-width:1px;
+    classDef layer1 fill:#1f497d,color:#ffffff,stroke:#0b5394,stroke-width:2px,font-weight:bold,rx:8,ry:8;
+    classDef layer2 fill:#38761d,color:#ffffff,stroke:#274e13,stroke-width:2px,rx:8,ry:8;
+    classDef layer3 fill:#b45f06,color:#ffffff,stroke:#783f04,stroke-width:2px,font-style:italic,rx:8,ry:8;
 
     ROOT[Communication & Connectivity]:::layer1
 
