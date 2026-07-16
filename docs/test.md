@@ -28,7 +28,6 @@ classDiagram
     direction TB
     
     class DBMS {
-        <<Facade / Orchestrator>>
     }
 
     DBMS *-- ClientInterface
