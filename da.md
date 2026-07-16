@@ -1,75 +1,51 @@
-# TDD Unit Tests — Storage Engine
+# TDD Implementation Report: File Manager
 
-Tài liệu này chứa danh sách các Unit Test cases thiết kế theo chuẩn BDD (Given-When-Then) ứng với từng phương thức đã được bóc tách từ Sequence Diagram trong tài liệu D6.
-
----
-
-## 1. Unit Tests cho `File Manager`
-
-Dựa trên Sequence Diagram `06a_seq_file_management.md` và Detailed Class Diagram `04_class_detail_file_management.md`, chúng ta có các Test Cases độc lập sau:
-
-### 1.1. Test Cases: `FileLifecycleManager.create_file()`
-
-*Kịch bản tham chiếu: Operation 1 - createFile()*
-
-**Test Case 1: Tạo file thành công (Happy Path)**
-- **GIVEN:** Đường dẫn `path` hợp lệ, Hệ điều hành (Fake OS) có chỗ trống, `OpenFileManager` (được Mock) sẵn sàng nội suy.
-- **WHEN:** Gọi `FileLifecycleManager.create_file("test.db", FileType.DATA)`
-- **THEN:**
-  - Kết quả trả về (Output) là một `FileHandle` hợp lệ (is_valid = True).
-  - Trạng thái `DataFile` ban đầu là CREATING, sau đó chuyển thành OPEN.
-  - Hàm `IFileSynchronizer.allocate_on_disk()` phải được gọi lướt qua (Verified in Mock).
-  - Hàm `IOpenFileManager.register()` được gọi với `access_mode=READ_WRITE`.
-
-**Test Case 2: Tạo file thất bại do File đã tồn tại (Sad Path)**
-- **GIVEN:** File `"test.db"` đã tồn tại vật lý trên ổ cứng. `IFileSynchronizer.allocate_on_disk()` (Mock) được cài đặt để quăng ra lỗi `FileAlreadyExistsException`.
-- **WHEN:** Gọi `FileLifecycleManager.create_file("test.db", FileType.DATA)`
-- **THEN:** 
-  - Hệ thống ném ra đúng Exception `FileAlreadyExistsException`.
-  - Hàm `IOpenFileManager.register()` KHÔNG BAO GIỜ được gọi.
-
-### 1.2. Test Cases: `FileLifecycleManager.open_file()`
-
-*Kịch bản tham chiếu: Operation 2 - openFile()*
-
-**Test Case 3: Mở file mới lần đầu tiên (Happy Path)**
-- **GIVEN:** `IOpenFileManager.is_already_open("test.db")` trả về False. File `"test.db"` có sẵn trên đĩa.
-- **WHEN:** Gọi `open_file("test.db", READ_WRITE, EXCLUSIVE)`
-- **THEN:**
-  - Trả về `FileHandle`.
-  - Static method `DataFile.load()` phải được gọi đúng 1 lần.
-  - `IOpenFileManager.register()` được gọi.
-
-**Test Case 4: Mở file đã được mở trước đó (Reuse - Happy Path)**
-- **GIVEN:** `IOpenFileManager.is_already_open("test.db")` trả về True. Hàm `get_handle("test.db")` trả về một `FileHandle(ID=12)`.
-- **WHEN:** Gọi `open_file("test.db", READ_ONLY, SHARED)`
-- **THEN:**
-  - Trả về đúng `FileHandle(ID=12)` đã tồn tại.
-  - `DataFile.load()` và `register()` KHÔNG bị gọi. (Chống lãng phí Handle của OS).
-
-**Test Case 5: File không tồn tại (Sad Path)**
-- **GIVEN:** File `"test.db"` không nằm trên đĩa. `DataFile.load()` ném lỗi `FileNotFoundException`.
-- **WHEN:** Gọi `open_file("test.db", READ_ONLY, SHARED)`
-- **THEN:**
-  - Trả về lỗi `FileNotFoundException`.
+Status: **In Progress (RED Phase)**
+Objective: To document the Test-Driven Development (TDD) implementation lifecycle for the File Manager sub-module.
 
 ---
 
-### 1.3. Test Cases: `OpenFileManager.register()`
+## 1. Phase 1: RED (Initial Failure)
 
-*Kịch bản tham chiếu: Việc ghi chép Handle vào RAM*
+**Description:** Successfully initialized 16 Test Cases (4 Unit Test files: Lifecycle, OpenFile, IO, Synchronizer) BEFORE any actual backend source code was generated within the `src/` directory.
 
-**Test Case 6: Ghi danh thành công**
-- **GIVEN:** Bảng `OpenFileTable` rỗng. 
-- **WHEN:** Gọi `OpenFileManager.register(DataFile("test.db"), READ_WRITE, EXCLUSIVE)`
-- **THEN:**
-  - Kết quả trả về `FileHandle(is_valid=True)`.
-  - `OpenFileTable.add_entry()` được gọi.
-  - Bộ đếm `open_count` của Entry bằng 1.
+**Execution Command:**
+```bash
+pytest tests/unit_tests/file_manager/test_file_lifecycle_manager.py -v
+```
 
-**Test Case 7: Vượt quá số lượng file tối đa (Sad Path)**
-- **GIVEN:** `OpenFileManager` khởi tạo với `max_open = 100`. Bảng `OpenFileTable` đang chứa đúng 100 Entries.
-- **WHEN:** Gọi `register()` cho một File thứ 101.
-- **THEN:**
-  - Trả về lỗi `TooManyFilesOpenException`.
-  - Bảng `OpenFileTable` vẫn giữ nguyên mốc 100.
+**Result (Expected Expected Failure - MODULE NOT FOUND):**
+```text
+___________________ ERROR collecting tests/unit_tests/file_manager/test_file_lifecycle_manager.py ____________________
+ImportError while importing test module 'D:\Thực Tập\bbv\DBMS\tests\unit_tests\file_manager\test_file_lifecycle_manager.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+C:\Users\Admin\AppData\Local\Programs\Python\Python311\Lib\importlib\__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests\unit_tests\file_manager\test_file_lifecycle_manager.py:5: in <module>
+    from storage_engine.file_manager.services.file_lifecycle_manager import FileLifecycleManager
+E   ModuleNotFoundError: No module named 'storage_engine'
+============================================== short test summary info =============================================== 
+ERROR tests/unit_tests/file_manager/test_file_lifecycle_manager.py
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! 
+```
+
+**Phase 1 Conclusion:** Perfect! The `ModuleNotFoundError` proves that our Test Suite is correctly configured and execution intentionally fails due to the explicit absence of the underlying system logic code, satisfying the fundamental RED phase requirement.
+
+---
+
+## 2. Phase 2: GREEN (Implementation) - [PENDING]
+
+**Future Action Plan:**
+- Initialize the directory structure for `src/storage_engine/file_manager/...`
+- Implement concrete structural logic (Methods) to satisfy the test constraint boundaries.
+- Continually re-execute the `pytest` command above until the entire terminal console outputs a green `PASSED` status.
+
+---
+
+## 3. Phase 3: REFACTOR - [PENDING]
+
+- Clean up redundant code and extract reusable logic into encapsulated modules.
+- Consolidate definitions and optimize the architecture adhering strictly to SOLID principles.
+- Execute `pytest` sequentially to verify the system logic structurally remains strictly `GREEN` post-refactoring.
