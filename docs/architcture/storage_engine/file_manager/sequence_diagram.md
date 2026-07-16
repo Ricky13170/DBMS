@@ -43,6 +43,7 @@ sequenceDiagram
 
     FLM-->>Caller: fileHandle
 ```
+**Explanation:** The caller requests the creation of a new file. The `FileLifecycleManager` initializes a `DataFile` entity and coordinates with the `FileSynchronizer` to physically allocate disk boundaries. Once the OS confirms allocation, the file state transitions to `OPEN`. It is then immediately registered into the `OpenFileTable` to reserve a working memory tracking session, returning a valid `FileHandle` back to the caller.
 
 **Sad Path — File already exists:**
 ```mermaid
@@ -58,6 +59,7 @@ sequenceDiagram
 
     FLM-->>Caller: ❌ throw FileAlreadyExistsException
 ```
+**Explanation:** If the DBMS attempts to allocate disk space but detects that the designated file path inherently persists already, the `FileSynchronizer` defensively aborts the sequence, propagating a `FileAlreadyExistsException` back to the requesting caller.
 
 **Inferred Method Signatures:**
 | Class | Method |
@@ -103,6 +105,7 @@ sequenceDiagram
 
     FLM-->>Caller: fileHandle
 ```
+**Explanation:** Upon requesting to open a file, the `FileLifecycleManager` primarily scans if the file is historically memory-bound via the `OpenFileManager`. Upon a cache miss, it leverages `DataFile` to fetch OS metadata headers directly from disk. Upon successful loading, it registers the bridged file into the `OpenFileTable` mapping creating an active `FileHandle` for continuous utilization.
 
 **Happy Path — File was already opened (Reuse Handle):**
 ```mermaid
@@ -128,6 +131,7 @@ sequenceDiagram
     FLM-->>Caller: fileHandle (reused)
     note over Caller,FLM: Does not create a new OS file handle<br/>to avoid resource waste
 ```
+**Explanation:** If the file is already actively mapped in RAM (`OpenFileManager`), the system inherently bypasses expensive physical OS reads. It securely reuses the pre-existing `FileHandle`, optimizing memory footprint overhead and restricting arbitrary OS file lock conflicts natively.
 
 **Sad Path — File does not exist:**
 ```mermaid
@@ -143,6 +147,7 @@ sequenceDiagram
 
     FLM-->>Caller: ❌ throw FileNotFoundException
 ```
+**Explanation:** If the target location string maps to an illegitimate empty node on disk, the loading instruction forcefully raises a `FileNotFoundException`, safely terminating any consecutive registry logic.
 
 **Inferred Method Signatures:**
 | Class | Method |
@@ -178,6 +183,7 @@ sequenceDiagram
 
     FLM-->>Caller: true (Success)
 ```
+**Explanation:** The directive orchestrates completely unlinking a physical file. The facade critically queries `OpenFileManager` validating the absence of remaining active handles. Seeing none, it licenses the `FileSynchronizer` to interactively instruct the host OS to eliminate the file's bytes permanently.
 
 **Sad Path — File is currently in use:**
 ```mermaid
@@ -194,6 +200,7 @@ sequenceDiagram
 
     FLM-->>Caller: ❌ throw FileInUseException
 ```
+**Explanation:** A file actively hosting read/write handles is considered permanently locked in working RAM. The system blocks physical deletion assertively by raising a `FileInUseException`, avoiding catastrophic logical data loss and active memory null-reference crashing.
 
 **Inferred Method Signatures:**
 | Class | Method |
@@ -226,6 +233,7 @@ sequenceDiagram
 
     FLM-->>Caller: newOffset
 ```
+**Explanation:** The architectural system dynamically pushes limits requesting physical disk enlargement. The facade verifies structural compliance mappings tracking the `FileHandle`. Validated sequentially, `FileSynchronizer` utilizes OS bounds appending blank chunks logic, natively returning the newly mounted execution offset address.
 
 **Sad Path — Out of Disk Space:**
 ```mermaid
@@ -241,6 +249,7 @@ sequenceDiagram
 
     FLM-->>Caller: ❌ throw OutOfSpaceException
 ```
+**Explanation:** Conversely, when underlying hardware physical capacities are mathematically breached during enlargement, `FileSynchronizer` explicitly intercepts low-level hardware kernel exceptions, throwing an overarching `OutOfSpaceException`.
 
 **Inferred Method Signatures:**
 | Class | Method |
