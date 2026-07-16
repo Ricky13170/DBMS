@@ -4,31 +4,7 @@ This document defines the automated testing architecture for the **File Manager*
 
 ---
 
-## 1. Directory Structure (GitHub Repository)
-To cleanly isolate domain boundaries, the testing suite separates logics dynamically simulating disk operations (Unit Tests using Mocking) versus implicitly executing live hardware OS drivers (Integration Tests).
-
-```text
-DBMS/
-│
-├── src/storage_engine/file_manager/          # Functional source code
-│   ├── interfaces/
-│   ├── enums/
-│   ├── entities/
-│   └── services/
-│
-└── tests/
-    ├── unit_tests/file_manager/              # MOCKED OS - Extremely fast
-    │   ├── test_file_lifecycle_manager.py
-    │   ├── test_open_file_manager.py
-    │   └── test_file_io.py
-    │
-    └── integration_tests/file_manager/       # REAL DISK OS I/O - Requires teardown
-        └── test_physical_file_integration.py
-```
-
----
-
-## 2. Unit Test Scenarios (Mocked Dependencies)
+## 1. Unit Test Scenarios (Mocked Dependencies)
 *Strategy: Utilize Python's `unittest.mock` strictly isolating the focal class, verifying internal function matrix execution logic correctly without touching the actual hard drive.*
 
 ### Target: `test_file_lifecycle_manager.py` (Testing `FileLifecycleManager`)
@@ -49,7 +25,7 @@ DBMS/
 
 ---
 
-## 3. Integration Test Scenarios (Real OS Interaction)
+## 2. Integration Test Scenarios (Real OS Interaction)
 *Strategy: Executing actual physical Operating System file bindings bypassing mocking completely, simulating absolute true system limits.*
 
 ### Target: `test_physical_file_integration.py`
