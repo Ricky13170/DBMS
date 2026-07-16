@@ -1,466 +1,317 @@
-# Tham số Thiết kế: DBMS Class Breakdown (Layer 4 - Không Methods)
-Tài liệu này định nghĩa các Object tham gia vào hệ thống, được phân loại nghiêm ngặt theo các chuẩn:
-- **Enums**: File cấu hình hằng số
-- **Entities**: Lớp dữ liệu thuần túy không chứa logic (DTO, POJO, Data structures)
-- **Interfaces**: Hợp đồng giao tiếp (Tuân thủ ISP)
-- **Abstract Classes**: Lớp cơ sở chứa logic dùng chung (Tuân thủ Template Method)
-- **Classes**: Các lớp thực thi nghiệp vụ (Tuân thủ SRP)
+# Detailed Class Diagram — File Manager (Storage Engine)
+
+Tài liệu này đặc tả chi tiết Layer 4 cho sub-module **File Manager**, bao gồm đầy đủ thuộc tính (properties), phương thức (methods), kiểu dữ liệu (Python type hint), và quan hệ giữa các lớp. (Cập nhật sau khi phân tích luồng Sequence D5/D6).
 
 ---
 
-## 1. STORAGE ENGINE
+## 1. Chi Tiết Các Sub-Groups
 
-### 1.1 File Management
-```text
-File Management
-├── Enums
-│   ├── FileType (DATA, LOG, TEMP)
-│   ├── FileState (OPEN, CLOSED, CORRUPTED)
-│   ├── FileAccessMode (READ, WRITE, APPEND)
-│   ├── FileLockMode (SHARED, EXCLUSIVE)
-│   └── AllocationStatus (ALLOCATED, FREE)
-├── Entities
-│   ├── DataFile
-│   ├── OpenFileTable
-│   ├── OpenFileEntry
-│   └── FileHandle
-├── Interfaces
-│   ├── IFileLifecycleManager  -- create/delete/rename
-│   ├── IFileReader            -- read block
-│   ├── IFileWriter            -- write block
-│   ├── IFileSynchronizer      -- fsync/flush
-│   ├── IExtentManager         -- manage extents
-│   └── IOpenFileManager       -- manage file handles
-├── Abstract Classes
-│   └── (None)
-└── Classes
-    ├── FileLifecycleManager
-    ├── FileReader
-    ├── FileWriter
-    ├── FileSynchronizer
-    ├── ExtentManager
-    └── OpenFileManager
+### Sub-Group 1: File Lifecycle
+Chịu trách nhiệm tạo mới, xóa bỏ, đổi tên và kiểm soát trạng thái vật lý của các file dữ liệu trên hệ thống.
+
+```mermaid
+classDiagram
+    class FileType {
+        <<enumeration>>
+        DATA
+        LOG
+        TEMP
+    }
+    class FileState {
+        <<enumeration>>
+        OPEN
+        CLOSED
+        CREATING
+        CORRUPTED
+    }
+    class DataFile {
+        <<entity>>
+        +file_id: int
+        +path: str
+        +file_type: FileType
+        +state: FileState
+        +size_bytes: int
+        +__init__(file_id: int, path: str, file_type: FileType, state: FileState, size_bytes: int)
+        +load(path: str) DataFile$
+    }
+    class IFileLifecycleManager {
+        <<interface>>
+        +create_file(path: str, file_type: FileType) FileHandle
+        +open_file(path: str, mode: FileAccessMode, lock: FileLockMode) FileHandle
+        +close_file(handle: FileHandle) None
+        +delete_file(path: str) bool
+        +allocate_space(handle: FileHandle, size_bytes: int) int
+    }
+    class FileLifecycleManager {
+        -_open_file_mgr: IOpenFileManager
+        -_reader: IFileReader
+        -_writer: IFileWriter
+        -_synchronizer: IFileSynchronizer
+        +__init__(open_file_mgr: IOpenFileManager, reader: IFileReader, writer: IFileWriter, synchronizer: IFileSynchronizer)
+        +create_file(path: str, file_type: FileType) FileHandle
+        +open_file(path: str, mode: FileAccessMode, lock: FileLockMode) FileHandle
+        +close_file(handle: FileHandle) None
+        +delete_file(path: str) bool
+        +allocate_space(handle: FileHandle, size_bytes: int) int
+        -_lookup_data_file(path: str) DataFile
+    }
+
+    IFileLifecycleManager <|.. FileLifecycleManager
+    FileLifecycleManager ..> DataFile : creates/lookups
+    DataFile ..> FileType
+    DataFile ..> FileState
 ```
 
-### 1.2 Page Management
-```text
-Page Management
-├── Enums
-│   ├── PageType (DATA, DIRECTORY, BLOB)
-│   └── PageStatus (CLEAN, DIRTY, PINNED)
-├── Entities
-│   ├── GenericPage
-│   ├── DataPage
-│   ├── DirectoryPage
-│   ├── PageHeader
-│   └── PageSlot
-├── Interfaces
-│   ├── IPageFormatter         -- format new page
-│   ├── IPageReader            -- read slots
-│   ├── IPageWriter            -- write/update slots
-│   └── IPageDefragmenter      -- compact space
-├── Abstract Classes
-│   └── AbstractPageFormatter
-└── Classes
-    ├── DataPageFormatter
-    ├── DirectoryPageFormatter
-    ├── PageReader
-    ├── PageWriter
-    └── PageDefragmenter
+### Sub-Group 2: File Open/Close Management
+Quản lý việc ánh xạ các file đang mở (OpenFileTable), cơ chế đếm số lần sử dụng (reference counting), và cơ chế khóa file nhằm đảm bảo tính toàn vẹn đa luồng/tiến trình.
+
+```mermaid
+classDiagram
+    class FileAccessMode {
+        <<enumeration>>
+        READ_ONLY
+        WRITE_ONLY
+        READ_WRITE
+    }
+    class FileLockMode {
+        <<enumeration>>
+        SHARED
+        EXCLUSIVE
+        NONE
+    }
+    class FileHandle {
+        <<entity>>
+        +handle_id: int
+        +file_id: int
+        +access_mode: FileAccessMode
+        +lock_mode: FileLockMode
+        +is_valid: bool
+        +__init__(handle_id: int, file_id: int, access_mode: FileAccessMode, lock_mode: FileLockMode)
+        +invalidate() None
+    }
+    class OpenFileEntry {
+        <<entity>>
+        +file_id: int
+        +handle: FileHandle
+        +open_count: int
+        +last_accessed: int
+        +__init__(file_id: int, handle: FileHandle)
+        +increment_open_count() None
+        +decrement_open_count() int
+    }
+    class OpenFileTable {
+        <<entity>>
+        -_entries: dict~int, OpenFileEntry~
+        +__init__()
+        +has_entry(path: str) bool
+        +add_entry(file: DataFile, mode: FileAccessMode, lock: FileLockMode) OpenFileEntry
+        +find_entry(path: str) OpenFileEntry
+        +remove_entry(handle_id: int) None
+        +validate_handle(handle: FileHandle) bool
+    }
+    class IOpenFileManager {
+        <<interface>>
+        +get_handle(path: str) FileHandle
+        +is_already_open(path: str) bool
+        +register(file: DataFile, mode: FileAccessMode, lock: FileLockMode) FileHandle
+        +release_handle(handle: FileHandle) bool
+    }
+    class OpenFileManager {
+        -_table: OpenFileTable
+        -_max_open: int
+        -_next_handle_id: int
+        +__init__(max_open: int)
+        +get_handle(path: str) FileHandle
+        +is_already_open(path: str) bool
+        +register(file: DataFile, mode: FileAccessMode, lock: FileLockMode) FileHandle
+        +release_handle(handle: FileHandle) bool
+    }
+
+    IOpenFileManager <|.. OpenFileManager
+    OpenFileManager *-- OpenFileTable
+    OpenFileTable *-- OpenFileEntry
+    OpenFileEntry *-- FileHandle
+    FileHandle ..> FileAccessMode
+    FileHandle ..> FileLockMode
 ```
 
-### 1.3 Buffer Management
-```text
-Buffer Management
-├── Enums
-│   └── ReplacementPolicyType (LRU, CLOCK, MRU)
-├── Entities
-│   ├── BufferFrame
-│   ├── BufferPool
-│   └── FrameStatistics
-├── Interfaces
-│   ├── IBufferPoolManager     -- get/pin/unpin pages
-│   ├── IReplacementPolicy     -- choose victim
-│   ├── IFlushController       -- background flush
-│   └── IFrameAllocator        -- manage memory frames
-├── Abstract Classes
-│   └── AbstractReplacementPolicy
-└── Classes
-    ├── LRUReplacementPolicy
-    ├── ClockReplacementPolicy
-    ├── BufferPoolManager
-    ├── FlushController
-    └── FrameAllocator
+### Sub-Group 3: Data Read/Write
+Xử lý các thao tác đọc và ghi dữ liệu mức tối thấp (block-level read/write) tại một offset cụ thể.
+
+```mermaid
+classDiagram
+    class IFileReader {
+        <<interface>>
+        +read_block(handle: FileHandle, offset: int, size: int) bytes
+    }
+    class FileReader {
+        -_file_descriptors: dict~int, object~
+        +__init__()
+        +read_block(handle: FileHandle, offset: int, size: int) bytes
+    }
+    class IFileWriter {
+        <<interface>>
+        +write_block(handle: FileHandle, offset: int, data: bytes) None
+    }
+    class FileWriter {
+        -_file_descriptors: dict~int, object~
+        +__init__()
+        +write_block(handle: FileHandle, offset: int, data: bytes) None
+    }
+
+    IFileReader <|.. FileReader
+    IFileWriter <|.. FileWriter
 ```
 
-### 1.4 Record Management
-```text
-Record Management
-├── Enums
-│   ├── RecordFormat (FIXED, VARIABLE)
-│   └── SchemaType (INT, VARCHAR, DATE)
-├── Entities
-│   ├── RID (Record ID)
-│   ├── Tuple
-│   ├── Field
-│   └── RecordSchema
-├── Interfaces
-│   ├── IRecordSerializer      -- Tuple <-> Bytes
-│   ├── IRecordCRUD            -- insert/delete/update tuple
-│   ├── ISchemaValidator       -- validate field types
-│   └── IRecordLocator         -- find exact byte offset
-├── Abstract Classes
-│   └── AbstractRecordSerializer
-└── Classes
-    ├── FixedLengthSerializer
-    ├── VariableLengthSerializer
-    ├── RecordCRUDManager
-    ├── SchemaValidator
-    └── RecordLocator
-```
+### Sub-Group 4: Disk Synchronization
+Đảm bảo cơ chế đồng bộ hóa dữ liệu từ bộ nhớ đệm (OS cache) xuống thiết bị lưu trữ vật lý nhằm đáp ứng tiêu chí ACID (phần Durability). Cũng quản lý việc không gian tĩnh.
 
-### 1.5 Access Methods (Indexes)
-```text
-Access Methods
-├── Enums
-│   ├── IndexType (B_PLUS_TREE, HASH)
-│   └── ScanDirection (FORWARD, BACKWARD)
-├── Entities
-│   ├── IndexKey
-│   ├── BTreeNode
-│   ├── HashBucket
-│   └── ScanContext
-├── Interfaces
-│   ├── IAccessMethod          -- insert/delete/search index
-│   ├── IIndexScanner          -- range scan
-│   └── IIndexNodeSplitter     -- handle node overflow
-├── Abstract Classes
-│   └── AbstractTreeScanner
-└── Classes
-    ├── BPlusTreeIndex
-    ├── HashIndex
-    ├── BTreeScanner
-    └── NodeSplitter
-```
+```mermaid
+classDiagram
+    class IFileSynchronizer {
+        <<interface>>
+        +allocate_on_disk(path: str) None
+        +delete_from_disk(path: str) None
+        +expand_file(handle: FileHandle, size_bytes: int) int
+        +fsync(handle: FileHandle) None
+        +flush_buffers(handle: FileHandle) None
+    }
+    class FileSynchronizer {
+        +__init__()
+        +allocate_on_disk(path: str) None
+        +delete_from_disk(path: str) None
+        +expand_file(handle: FileHandle, size_bytes: int) int
+        +fsync(handle: FileHandle) None
+        +flush_buffers(handle: FileHandle) None
+    }
 
-### 1.6 Space Allocation
-```text
-Space Allocation
-├── Enums
-│   └── SpaceSearchStrategy (FIRST_FIT, BEST_FIT)
-├── Entities
-│   ├── FreeSpaceMap (FSM)
-│   ├── AllocationBitmap
-│   └── ExtentTracker
-├── Interfaces
-│   ├── ISpaceAllocator        -- allocate pages
-│   ├── ISpaceDeallocator      -- free pages
-│   └── ISpaceSearcher         -- find free slots/pages
-├── Abstract Classes
-│   └── (None)
-└── Classes
-    ├── PageAllocator
-    ├── FSMManager
-    ├── BitmapManager
-    └── BestFitSearcher
-```
-
----
-
-## 2. QUERY PROCESSING
-
-### 2.1 SQL Parser & Semantic Analysis
-```text
-SQL Parser
-├── Enums
-│   ├── TokenType (KEYWORD, IDENTIFIER, LITERAL)
-│   └── ASTNodeType (SELECT, INSERT, JOIN)
-├── Entities
-│   ├── Token
-│   ├── AbstractSyntaxTree (AST)
-│   ├── QueryContext
-│   └── SemanticError
-├── Interfaces
-│   ├── ILexer                 -- string -> tokens
-│   ├── IParser                -- tokens -> AST
-│   ├── ISemanticValidator     -- AST -> Validated AST
-│   └── ICatalogLookup         -- resolve tables/columns
-├── Abstract Classes
-│   └── AbstractSyntaxNode
-└── Classes
-    ├── SQLLexer
-    ├── SQLParser
-    ├── SemanticValidator
-    └── CatalogLookupService
-```
-
-### 2.2 Query Optimizer
-```text
-Query Optimizer
-├── Enums
-│   ├── JoinStrategy (NESTED_LOOP, HASH, MERGE)
-│   └── OptimizationGoal (COST, LATENCY)
-├── Entities
-│   ├── LogicalPlan
-│   ├── PhysicalPlan
-│   ├── CostMetrics
-│   └── TableStatistics
-├── Interfaces
-│   ├── IPlanGenerator         -- AST -> Logical
-│   ├── IRuleApplier           -- Relational algebra rules
-│   ├── ICostEstimator         -- heuristic cost
-│   └── IPhysicalPlanner       -- Logical -> Physical
-├── Abstract Classes
-│   ├── AbstractOptimizationRule
-│   └── AbstractPhysicalOperator
-└── Classes
-    ├── HeuristicOptimizer
-    ├── CostBasedOptimizer
-    ├── FilterPushdownRule
-    ├── JoinReorderRule
-    └── PlanGenerator
-```
-
-### 2.3 Query Execution Engine
-```text
-Query Execution
-├── Enums
-│   └── ExecutionState (INIT, RUNNING, DONE, ERROR)
-├── Entities
-│   ├── ExecutionContext
-│   └── OperatorState
-├── Interfaces
-│   ├── IExecutionEngine       -- execute PhysicalPlan
-│   ├── IRelationalOperator    -- open/next/close (Volcano paradigm)
-│   └── IPipelineManager       -- orchestrate operators
-├── Abstract Classes
-│   └── AbstractRelationalOperator
-└── Classes
-    ├── VolcanoExecutionEngine
-    ├── NestedLoopJoinOp
-    ├── HashJoinOp
-    ├── SeqScanOp
-    ├── IndexScanOp
-    └── PipelineManager
+    IFileSynchronizer <|.. FileSynchronizer
 ```
 
 ---
 
-## 3. TRANSACTION & CONCURRENCY
+## 2. Toàn Bộ Detailed Class Diagram (Gộp & Quan Hệ Hoàn Chỉnh)
 
-### 3.1 Transaction Manager
-```text
-Transaction Management
-├── Enums
-│   ├── TxStatus (ACTIVE, COMMITTED, ABORTED)
-│   └── IsolationLevel (READ_COMMITTED, SERIALIZABLE)
-├── Entities
-│   ├── TransactionContext
-│   ├── Savepoint
-│   └── TxTableEntry
-├── Interfaces
-│   ├── ITxLifecycleManager    -- begin/commit/rollback
-│   ├── ISavepointManager      -- set/release savepoints
-│   └── ITxStateTracker        -- monitor states
-├── Abstract Classes
-│   └── (None)
-└── Classes
-    ├── TransactionManager
-    ├── SavepointController
-    └── TransactionTable
-```
+Sơ đồ quan hệ phụ thuộc giữa các lớp thực thi và interface trong cấu trúc File Manager (bao gồm các dependency injection):
 
-### 3.2 Lock Manager
-```text
-Lock Management
-├── Enums
-│   ├── LockMode (SHARED, EXCLUSIVE, INTENT)
-│   └── DeadlockResolution (WAIT_DIE, WOUND_WAIT)
-├── Entities
-│   ├── LockRequest
-│   ├── LockQueue
-│   └── WaitGraph
-├── Interfaces
-│   ├── ILockingProtocol       -- acquire/release
-│   ├── IDeadlockDetector      -- detect cycles
-│   └── IVictimSelector        -- choose tx to abort
-├── Abstract Classes
-│   └── AbstractDeadlockPrevention
-└── Classes
-    ├── TwoPhaseLockingProtocol
-    ├── LockTable
-    ├── DeadlockDetector
-    └── WoundWaitPolicy
-```
+```mermaid
+classDiagram
+    direction TB
 
-### 3.3 MVCC Engine
-```text
-MVCC & Versioning
-├── Enums
-│   └── VersionStatus (VISIBLE, INVISIBLE, STALE)
-├── Entities
-│   ├── VersionRecord
-│   ├── Snapshot
-│   └── VersionChain
-├── Interfaces
-│   ├── IMVCCEngine            -- create versions
-│   ├── IVisibilityChecker     -- check snapshot visibility
-│   └── IGarbageCollector      -- clean stale versions
-├── Abstract Classes
-│   └── (None)
-└── Classes
-    ├── VersionManager
-    ├── VisibilityChecker
-    ├── SnapshotManager
-    └── MVCCGarbageCollector
-```
+    %% File Lifecycle
+    class DataFile {
+        +file_id: int
+        +path: str
+        +file_type: FileType
+        +state: FileState
+        +size_bytes: int
+        +load(path) DataFile$
+    }
+    class FileLifecycleManager {
+        -_open_file_mgr: IOpenFileManager
+        -_reader: IFileReader
+        -_writer: IFileWriter
+        -_synchronizer: IFileSynchronizer
+        +create_file(path: str, file_type: FileType) FileHandle
+        +open_file(path: str, mode: FileAccessMode, lock: FileLockMode) FileHandle
+        +close_file(handle: FileHandle) None
+        +delete_file(path: str) bool
+        +allocate_space(handle: FileHandle, size_bytes: int) int
+    }
 
----
+    %% Open/Close Manager
+    class FileHandle {
+        +handle_id: int
+        +file_id: int
+        +access_mode: FileAccessMode
+        +lock_mode: FileLockMode
+        +is_valid: bool
+    }
+    class OpenFileEntry {
+        +file_id: int
+        +handle: FileHandle
+        +open_count: int
+        +last_accessed: int
+    }
+    class OpenFileTable {
+        -entries: dict~int, OpenFileEntry~
+        +add_entry(file: DataFile, mode: FileAccessMode, lock: FileLockMode) OpenFileEntry
+        +find_entry(path: str) OpenFileEntry
+        +validate_handle(handle: FileHandle) bool
+        +remove_entry(handle_id: int) None
+    }
+    class OpenFileManager {
+        -_table: OpenFileTable
+        -_max_open: int
+        -_next_handle_id: int
+        +is_already_open(path: str) bool
+        +get_handle(path: str) FileHandle
+        +register(file: DataFile, mode: FileAccessMode, lock: FileLockMode) FileHandle
+        +release_handle(handle: FileHandle) bool
+    }
 
-## 4. DATABASE OBJECT & METADATA
+    %% Read/Write
+    class FileReader {
+        -_file_descriptors: dict~int, object~
+        +read_block(handle: FileHandle, offset: int, size: int) bytes
+    }
+    class FileWriter {
+        -_file_descriptors: dict~int, object~
+        +write_block(handle: FileHandle, offset: int, data: bytes) None
+    }
 
-### 4.1 Catalog & Schema Management
-```text
-Catalog Manager
-├── Enums
-│   ├── ObjectType (TABLE, VIEW, INDEX, FUNC)
-│   └── ColumnType (INT, VARCHAR, BOOLEAN)
-├── Entities
-│   ├── SchemaDef
-│   ├── TableDef
-│   ├── ColumnDef
-│   └── ObjectMetadata
-├── Interfaces
-│   ├── ICatalogReader         -- Read metadata
-│   ├── ICatalogWriter         -- Write/Update metadata
-│   ├── IObjectLifecycle       -- create/drop operations
-│   └── IConstraintValidator   -- PK/FK checking
-├── Abstract Classes
-│   └── (None)
-└── Classes
-    ├── SystemCatalog
-    ├── ObjectLifecycleManager
-    ├── ConstraintValidator
-    └── TypeRegistry
-```
+    %% Synchronizer
+    class FileSynchronizer {
+        +allocate_on_disk(path: str) None
+        +delete_from_disk(path: str) None
+        +expand_file(handle: FileHandle, size_bytes: int) int
+        +fsync(handle: FileHandle) None
+        +flush_buffers(handle: FileHandle) None
+    }
 
----
+    %% Interfaces
+    class IFileLifecycleManager { <<interface>> }
+    class IOpenFileManager { <<interface>> }
+    class IFileReader { <<interface>> }
+    class IFileWriter { <<interface>> }
+    class IFileSynchronizer { <<interface>> }
 
-## 5. SECURITY
+    %% Realizations
+    IFileLifecycleManager <|.. FileLifecycleManager
+    IOpenFileManager <|.. OpenFileManager
+    IFileReader <|.. FileReader
+    IFileWriter <|.. FileWriter
+    IFileSynchronizer <|.. FileSynchronizer
 
-### 5.1 Authentication & Authorization
-```text
-Security
-├── Enums
-│   ├── AuthMethod (PASSWORD, TOKEN)
-│   ├── PrivilegeType (SELECT, INSERT, UPDATE)
-│   └── RoleLevel (ADMIN, USER)
-├── Entities
-│   ├── UserAccount
-│   ├── RoleDef
-│   ├── SessionContext
-│   └── AuditEvent
-├── Interfaces
-│   ├── IAuthenticator         -- verify credentials
-│   ├── IAuthorizer            -- check permissions
-│   ├── IPrivilegeGrantor      -- grant/revoke
-│   └── IAuditLogger           -- write logs
-├── Abstract Classes
-│   ├── AbstractAuthMethod
-│   └── AbstractSecurityPolicy
-└── Classes
-    ├── PasswordAuthenticator
-    ├── RBACAuthorizer
-    ├── PrivilegeManager
-    └── AuditManager
+    %% Aggregations (Facade dependency Injection)
+    FileLifecycleManager o--> IOpenFileManager : delegates handle track
+    FileLifecycleManager o--> IFileReader      : delegates reads
+    FileLifecycleManager o--> IFileWriter      : delegates writes
+    FileLifecycleManager o--> IFileSynchronizer: delegates syncs
+
+    %% Compositions
+    OpenFileManager *-- OpenFileTable
+    OpenFileTable *-- OpenFileEntry
+    OpenFileEntry *-- FileHandle
+
+    %% Dependencies
+    FileLifecycleManager ..> DataFile : creates/lookups
 ```
 
 ---
 
-## 6. ADMINISTRATION
+## 3. Bản Đồ Properties & Methods Chi Tiết
 
-### 6.1 Monitoring & Config
-```text
-Administration
-├── Enums
-│   ├── MetricType (CPU, MEMORY, IO)
-│   └── AlertSeverity (INFO, WARNING, CRITICAL)
-├── Entities
-│   ├── SystemMetric
-│   ├── AlertNotification
-│   └── DBConfigMap
-├── Interfaces
-│   ├── IMetricsCollector      -- gather system stats
-│   ├── IAlertNotifier         -- send warnings
-│   ├── IConfigManager         -- hot reload parameters
-│   └── ITaskScheduler         -- cron jobs
-├── Abstract Classes
-│   └── (None)
-└── Classes
-    ├── PerformanceCollector
-    ├── AlertSystem
-    ├── DynamicConfigManager
-    └── BackgroundTaskScheduler
-```
+Dưới đây là thống kê toàn bộ thuộc tính và phương thức với kiểu dữ liệu của File Manager chuẩn bị cho TDD:
 
----
-
-## 7. BACKUP & RECOVERY (LOGGING)
-
-### 7.1 WAL & Recovery Manager
-```text
-Logging & Recovery
-├── Enums
-│   ├── BackupType (FULL, INCREMENTAL)
-│   ├── LogOperation (INSERT, UPDATE, DELETE)
-│   └── RecoveryMode (CRASH, PITR)
-├── Entities
-│   ├── LogSequenceNumber (LSN)
-│   ├── LogRecord
-│   ├── CheckpointRecord
-│   └── BackupManifest
-├── Interfaces
-│   ├── IWALWriter             -- append log
-│   ├── IWALReader             -- scan log
-│   ├── IRecoveryEngine        -- redo/undo
-│   ├── IBackupStrategy        -- export data
-│   └── IRestoreStrategy       -- import data
-├── Abstract Classes
-│   └── AbstractBackupEngine
-└── Classes
-    ├── WALManager
-    ├── CrashRecoveryEngine
-    ├── PointInTimeRecovery
-    ├── CheckpointCoordinator
-    └── FullBackupEngine
-```
-
----
-
-## 8. COMMUNICATION & CONNECTIVITY
-
-### 8.1 Network & Session
-```text
-Communication
-├── Enums
-│   ├── ProtocolType (TCP, UNIX_SOCKET)
-│   └── ConnectionState (IDLE, ACTIVE, CLOSING)
-├── Entities
-│   ├── NetworkPacket
-│   ├── ClientRequest
-│   ├── ServerResponse
-│   └── ConnectionStats
-├── Interfaces
-│   ├── INetworkListener       -- accept connections
-│   ├── IPacketSerializer      -- string <-> bytes
-│   ├── IPacketParser          -- bytes -> req
-│   └── IConnectionPooler      -- manage active connections
-├── Abstract Classes
-│   ├── AbstractListener
-│   └── AbstractProtocolHandler
-└── Classes
-    ├── TCPListener
-    ├── PacketHandler
-    ├── ConnectionPoolManager
-    └── RequestDispatcher
-```
+| Class / Entity | Type | Properties | Methods & Signatures |
+| :--- | :--- | :--- | :--- |
+| **`DataFile`** | Entity | - `file_id: int`<br>- `path: str`<br>- `file_type: FileType`<br>- `state: FileState`<br>- `size_bytes: int` | - `__init__(file_id, path, file_type, state, size_bytes)`<br>- `load(path: str) -> DataFile` (Static) |
+| **`FileHandle`** | Entity | - `handle_id: int`<br>- `file_id: int`<br>- `access_mode: FileAccessMode`<br>- `lock_mode: FileLockMode`<br>- `is_valid: bool` | - `__init__(handle_id, file_id, access_mode, lock_mode)`<br>- `invalidate() -> None` |
+| **`OpenFileEntry`** | Entity | - `file_id: int`<br>- `handle: FileHandle`<br>- `open_count: int`<br>- `last_accessed: int` | - `__init__(file_id, handle)`<br>- `increment_open_count() -> None`<br>- `decrement_open_count() -> int` |
+| **`OpenFileTable`** | Entity | - `_entries: dict[int, OpenFileEntry]` | - `__init__()`<br>- `has_entry(path: str) -> bool`<br>- `add_entry(file, mode, lock) -> OpenFileEntry`<br>- `find_entry(path: str) -> OpenFileEntry`<br>- `remove_entry(handle_id)`<br>- `validate_handle(handle) -> bool` |
+| **`FileLifecycleManager`** | Facade | - `_open_file_mgr: IOpenFileManager`<br>- `_reader: IFileReader`<br>- `_writer: IFileWriter`<br>- `_synchronizer: IFileSynchronizer` | - `__init__(open_file_mgr, reader, writer, synchronizer)`<br>- `create_file(path, file_type) -> FileHandle`<br>- `open_file(path, mode, lock) -> FileHandle`<br>- `close_file(handle) -> None`<br>- `delete_file(path) -> bool`<br>- `allocate_space(handle, size_bytes) -> int`<br>- `_lookup_data_file(path) -> DataFile` |
+| **`OpenFileManager`** | Service | - `_table: OpenFileTable`<br>- `_max_open: int`<br>- `_next_handle_id: int` | - `__init__(max_open)`<br>- `get_handle(path: str) -> FileHandle`<br>- `is_already_open(path: str) -> bool`<br>- `register(file, mode, lock) -> FileHandle`<br>- `release_handle(handle) -> bool` |
+| **`FileReader`** | Service | - `_file_descriptors: dict[int, object]` | - `__init__()`<br>- `read_block(handle, offset, size) -> bytes` |
+| **`FileWriter`** | Service | - `_file_descriptors: dict[int, object]` | - `__init__()`<br>- `write_block(handle, offset, data) -> None` |
+| **`FileSynchronizer`** | Service | None | - `allocate_on_disk(path: str) -> None`<br>- `delete_from_disk(path: str) -> None`<br>- `expand_file(handle, size_bytes) -> int`<br>- `fsync(handle) -> None`<br>- `flush_buffers(handle) -> None` |
