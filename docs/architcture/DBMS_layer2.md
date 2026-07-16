@@ -6,9 +6,9 @@ This document illustrates the Layer-2 subsystem breakdown for each of the core 8
 graph LR
     %% Styles & Colors
     classDef default fill:#f9f9f9,stroke:#333,stroke-width:1px;
-    classDef root fill:#ff9999,stroke:#333,stroke-width:2px,font-weight:bold;
-    classDef layer1 fill:#99ccff,stroke:#333,stroke-width:1.5px,font-weight:bold;
-    classDef layer2 fill:#ccffcc,stroke:#333,stroke-width:1px;
+    classDef root fill:#7f0000,color:#ffffff,stroke:#4c0000,stroke-width:2px,font-weight:bold,rx:8,ry:8;
+    classDef layer1 fill:#1f497d,color:#ffffff,stroke:#0b5394,stroke-width:2px,font-weight:bold,rx:8,ry:8;
+    classDef layer2 fill:#38761d,color:#ffffff,stroke:#274e13,stroke-width:2px,rx:8,ry:8;
 
     %% Root
     db((DBMS)):::root
