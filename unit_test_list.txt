@@ -1,0 +1,382 @@
+StorageEngine/
+│
+├── FileManager/
+│   ├── FileManager.h
+│   ├── FileManager.cpp
+│   └── tests/
+│       ├── CreateDatabaseFileTest
+│       ├── DeleteDatabaseFileTest
+│       ├── OpenExistingFileTest
+│       ├── OpenNonExistingFileTest
+│       ├── CloseFileTest
+│       ├── ReadFileHeaderTest
+│       ├── WriteFileHeaderTest
+│       ├── ReadBeyondEOFTest
+│       ├── WriteBeyondEOFTest
+│       ├── SeekPositionTest
+│       ├── FlushFileTest
+│       ├── MultipleFileHandlesTest
+│       ├── PermissionDeniedTest
+│       ├── InvalidPathTest
+│       └── RecoverAfterReopenTest
+│
+├── PageManager/
+│   ├── PageManager.h
+│   ├── PageManager.cpp
+│   └── tests/
+│       ├── AllocatePageTest
+│       ├── FreePageTest
+│       ├── ReadPageTest
+│       ├── WritePageTest
+│       ├── ReadInvalidPageTest
+│       ├── WriteInvalidPageTest
+│       ├── UpdatePageTest
+│       ├── FlushPageTest
+│       ├── ReloadPageTest
+│       ├── PageChecksumTest
+│       ├── DirtyPageTest
+│       ├── EmptyPageTest
+│       ├── FullPageTest
+│       ├── PageOverflowTest
+│       ├── ReusePageTest
+│       ├── SequentialPageAllocationTest
+│       ├── RandomPageAccessTest
+│       └── PageMetadataTest
+│
+├── BufferManager/
+│   ├── BufferManager.h
+│   ├── BufferManager.cpp
+│   └── tests/
+│       ├── FetchPageTest
+│       ├── PinPageTest
+│       ├── UnpinPageTest
+│       ├── CacheHitTest
+│       ├── CacheMissTest
+│       ├── EvictPageTest
+│       ├── LRUReplacementTest
+│       ├── ClockReplacementTest
+│       ├── FlushDirtyPageTest
+│       ├── FlushAllPagesTest
+│       ├── PreventPinnedPageEvictionTest
+│       ├── DirtyPageWritebackTest
+│       ├── BufferOverflowTest
+│       ├── ReadAfterEvictionTest
+│       ├── MultiplePageFetchTest
+│       ├── ConcurrentFetchTest
+│       ├── ReferenceCountingTest
+│       ├── BufferResizeTest
+│       ├── BufferInitializationTest
+│       ├── VictimSelectionTest
+│       ├── DuplicateFetchTest
+│       ├── ReadOnlyPageTest
+│       ├── WritePageTest
+│       ├── SyncBufferTest
+│       └── ShutdownFlushTest
+│
+├── RecordManager/
+│   ├── RecordManager.h
+│   ├── RecordManager.cpp
+│   └── tests/
+│       ├── InsertRecordTest
+│       ├── DeleteRecordTest
+│       ├── UpdateRecordTest
+│       ├── ReadRecordTest
+│       ├── ReadDeletedRecordTest
+│       ├── InsertFixedRecordTest
+│       ├── InsertVariableRecordTest
+│       ├── LargeRecordTest
+│       ├── PageSplitTest
+│       ├── ReuseFreeSlotTest
+│       ├── ScanTableTest
+│       ├── ScanEmptyTableTest
+│       ├── ScanWithFilterTest
+│       ├── RecordCountTest
+│       ├── InvalidRIDTest
+│       ├── DuplicateRIDTest
+│       ├── NullFieldTest
+│       ├── RecordSerializationTest
+│       ├── RecordDeserializationTest
+│       ├── RollbackInsertTest
+│       ├── RollbackDeleteTest
+│       └── RollbackUpdateTest
+│
+├── AccessMethodManager/
+│   ├── AccessMethodManager.h
+│   ├── AccessMethodManager.cpp
+│   └── tests/
+│       ├── CreateHeapTest
+│       ├── CreateBTreeTest
+│       ├── CreateHashIndexTest
+│       ├── InsertKeyTest
+│       ├── DeleteKeyTest
+│       ├── UpdateKeyTest
+│       ├── SearchExistingKeyTest
+│       ├── SearchMissingKeyTest
+│       ├── DuplicateKeyTest
+│       ├── RangeScanTest
+│       ├── IteratorBeginTest
+│       ├── IteratorEndTest
+│       ├── LeafSplitTest
+│       ├── RootSplitTest
+│       ├── MergeNodeTest
+│       ├── BorrowKeyTest
+│       ├── TreeHeightTest
+│       ├── HashCollisionTest
+│       ├── HashResizeTest
+│       ├── SequentialScanTest
+│       ├── EmptyIndexTest
+│       ├── LargeIndexTest
+│       ├── CompositeKeyTest
+│       ├── UniqueKeyTest
+│       ├── NonUniqueKeyTest
+│       ├── BulkInsertTest
+│       ├── BulkDeleteTest
+│       ├── RebuildIndexTest
+│       ├── DestroyIndexTest
+│       └── PersistenceTest
+│
+└── StorageAllocator/
+    ├── StorageAllocator.h
+    ├── StorageAllocator.cpp
+    └── tests/
+        ├── AllocatePageTest
+        ├── FreePageTest
+        ├── AllocateExtentTest
+        ├── FreeExtentTest
+        ├── ReusePageTest
+        ├── ReuseExtentTest
+        ├── ExpandStorageTest
+        ├── ShrinkStorageTest
+        ├── OutOfSpaceTest
+        ├── FragmentationTest
+        ├── DefragmentationTest
+        ├── BitmapAllocationTest
+        ├── AllocationConsistencyTest
+        ├── ConcurrentAllocationTest
+        └── AllocationPersistenceTest
+
+
+
+QueryProcessing/
+│
+├── SQLParser/
+│   ├── SQLParser.h
+│   ├── SQLParser.cpp
+│   └── tests/
+│       ├── ParseSelectTest
+│       ├── ParseInsertTest
+│       ├── ParseUpdateTest
+│       ├── ParseDeleteTest
+│       ├── ParseCreateTableTest
+│       ├── ParseAlterTableTest
+│       ├── ParseDropTableTest
+│       ├── ParseCreateIndexTest
+│       ├── ParseCreateViewTest
+│       ├── ParseJoinTest
+│       ├── ParseGroupByTest
+│       ├── ParseOrderByTest
+│       ├── ParseHavingTest
+│       ├── ParseLimitTest
+│       ├── ParseOffsetTest
+│       ├── ParseWhereTest
+│       ├── ParseNestedQueryTest
+│       ├── ParseAggregateTest
+│       ├── ParseAliasTest
+│       ├── ParseExpressionTest
+│       ├── ParseInvalidSQLTest
+│       ├── UnexpectedTokenTest
+│       ├── MissingSemicolonTest
+│       ├── EmptySQLTest
+│       └── CommentParsingTest
+│
+├── QueryValidator/
+│   └── tests/
+│       ├── TableExistsTest
+│       ├── TableMissingTest
+│       ├── ColumnExistsTest
+│       ├── ColumnMissingTest
+│       ├── DataTypeValidationTest
+│       ├── InvalidDataTypeTest
+│       ├── FunctionExistsTest
+│       ├── FunctionMissingTest
+│       ├── PermissionGrantedTest
+│       ├── PermissionDeniedTest
+│       ├── GroupByValidationTest
+│       ├── OrderByValidationTest
+│       ├── AggregateValidationTest
+│       ├── ViewValidationTest
+│       ├── ConstraintValidationTest
+│       ├── AliasValidationTest
+│       ├── JoinValidationTest
+│       ├── AmbiguousColumnTest
+│       ├── SubqueryValidationTest
+│       └── ExpressionValidationTest
+│
+├── QueryRewriter/
+│   └── tests/
+│       ├── ExpandViewTest
+│       ├── FlattenSubqueryTest
+│       ├── PredicatePushdownTest
+│       ├── ConstantFoldingTest
+│       ├── SimplifyExpressionTest
+│       ├── RemoveRedundantPredicateTest
+│       ├── MergeFilterTest
+│       ├── MergeProjectionTest
+│       ├── RewriteExistsTest
+│       ├── RewriteInTest
+│       ├── RewriteDistinctTest
+│       ├── RewriteJoinTest
+│       ├── RewriteOrderByTest
+│       ├── RewriteLimitTest
+│       └── RewriteUnionTest
+│
+├── QueryOptimizer/
+│   └── tests/
+│       ├── CostEstimationTest
+│       ├── IndexScanSelectionTest
+│       ├── TableScanSelectionTest
+│       ├── NestedLoopJoinTest
+│       ├── HashJoinTest
+│       ├── MergeJoinTest
+│       ├── JoinOrderingTest
+│       ├── PredicateOrderingTest
+│       ├── ProjectionPushdownTest
+│       ├── CheapestPlanSelectionTest
+│       ├── StatisticsLoadingTest
+│       ├── HistogramUsageTest
+│       ├── IndexSelectionTest
+│       ├── ParallelPlanTest
+│       ├── PlanCachingTest
+│       ├── SortOptimizationTest
+│       ├── AggregationOptimizationTest
+│       ├── DistinctOptimizationTest
+│       ├── UnionOptimizationTest
+│       ├── SubqueryOptimizationTest
+│       ├── CostComparisonTest
+│       ├── CardinalityEstimationTest
+│       ├── FilterEstimationTest
+│       ├── ReoptimizationTest
+│       └── ExplainPlanTest
+│
+├── QueryExecutor/
+│   └── tests/
+│       ├── ExecuteSelectTest
+│       ├── ExecuteInsertTest
+│       ├── ExecuteUpdateTest
+│       ├── ExecuteDeleteTest
+│       ├── ExecuteCreateTest
+│       ├── ExecuteDropTest
+│       ├── ExecuteAlterTest
+│       ├── ExecuteCreateIndexTest
+│       ├── ExecuteCreateViewTest
+│       ├── ExecuteJoinTest
+│       ├── ExecuteGroupByTest
+│       ├── ExecuteOrderByTest
+│       ├── ExecuteHavingTest
+│       ├── ExecuteLimitTest
+│       ├── ExecuteOffsetTest
+│       ├── ExecuteUnionTest
+│       ├── ExecuteDistinctTest
+│       ├── ExecuteAggregateTest
+│       ├── ExecuteNestedQueryTest
+│       ├── ExecuteTransactionTest
+│       ├── ExecuteRollbackTest
+│       ├── ExecuteCommitTest
+│       ├── ExecuteTableScanTest
+│       ├── ExecuteIndexScanTest
+│       ├── ExecuteHashJoinTest
+│       ├── ExecuteMergeJoinTest
+│       ├── ExecuteNestedLoopTest
+│       ├── ExecuteFilterTest
+│       ├── ExecuteProjectionTest
+│       ├── ExecuteSortTest
+│       ├── ExecuteExpressionTest
+│       ├── ExecuteNullHandlingTest
+│       ├── ExecuteEmptyTableTest
+│       ├── ExecuteErrorQueryTest
+│       └── ExecuteLargeResultTest
+│
+└── ResultProcessor/
+    └── tests/
+        ├── BuildResultSetTest
+        ├── FormatRowTest
+        ├── FormatColumnTest
+        ├── SortOutputTest
+        ├── LimitOutputTest
+        ├── OffsetOutputTest
+        ├── SerializeResultTest
+        ├── DeserializeResultTest
+        ├── StreamResultTest
+        ├── EmptyResultTest
+        ├── LargeResultTest
+        ├── MetadataOutputTest
+        ├── ErrorOutputTest
+        ├── JsonOutputTest
+        └── CsvOutputTest
+
+
+DBMS
+│
+├── Storage Engine
+│   ├── FileManager
+│   ├── PageManager
+│   ├── BufferManager
+│   ├── RecordManager
+│   ├── AccessMethodManager
+│   └── StorageAllocator
+│
+├── Query Processing
+│   ├── SQLParser
+│   ├── QueryValidator
+│   ├── QueryRewriter
+│   ├── QueryOptimizer
+│   ├── QueryExecutor
+│   └── ResultProcessor
+│
+├── Transaction & Concurrency
+│   ├── TransactionManager
+│   ├── LockManager
+│   ├── DeadlockHandler
+│   └── IsolationManager
+│
+├── Security
+│   ├── AuthenticationManager
+│   ├── AuthorizationManager
+│   ├── UserManager
+│   ├── RoleManager
+│   ├── EncryptionManager
+│   └── AuditManager
+│
+├── Database Object & Metadata
+│   ├── DatabaseManager
+│   ├── SchemaManager
+│   ├── TableManager
+│   ├── DataTypeManager
+│   ├── IndexCatalog
+│   ├── ConstraintManager
+│   ├── ViewManager
+│   ├── ProcedureManager
+│   ├── FunctionManager
+│   ├── TriggerManager
+│   └── CatalogManager
+│
+├── Administration
+│   ├── MonitorManager
+│   ├── ConfigurationManager
+│   ├── MaintenanceManager
+│   ├── ImportExportManager
+│   └── ThreadManager
+│
+├── Backup, Recovery & Logging
+│   ├── LogManager
+│   ├── CheckpointManager
+│   ├── RecoveryManager
+│   ├── BackupRestoreManager
+│   └── HighAvailabilityManager
+│
+└── Communication & Connectivity
+    ├── ConnectionManager
+    ├── SessionManager
+    ├── ProtocolHandler
+    ├── RequestDispatcher
+    └── ResponseManager
