@@ -1,11 +1,11 @@
 # Class Diagram Level 1 — DBMS High-Level Architecture
 
-Sơ đồ thể hiện **8 module chính** và mối quan hệ giữa chúng ở mức tổng quan.
+This diagram illustrates the **8 core modules** and their high-level architectural relationships.
 
 > **Relationship legend:**
-> - `*--` Composition (DBMS sở hữu module)
-> - `-->` Association (phụ thuộc thường xuyên)
-> - `..>` Dependency (dùng tạm thời)
+> - `*--` Composition (DBMS owns the module)
+> - `-->` Association (regular interaction)
+> - `..>` Dependency (temporary utilization)
 
 ---
 
@@ -51,48 +51,47 @@ classDiagram
     DBMS *-- Security
     DBMS *-- Administration
     
-
     %% --- Main request pipeline ---
-    CommunicationConnectivity --> QueryProcessing : dispatches request
+    CommunicationConnectivity --> QueryProcessing
 
     %% --- Security cross-cutting ---
-    CommunicationConnectivity ..> Security : authenticates
-    QueryProcessing ..> Security : checks privilege
+    CommunicationConnectivity ..> Security
+    QueryProcessing ..> Security
 
     %% --- Query to lower layers ---
-    QueryProcessing ..> TransactionConcurrency : acquires lock
-    QueryProcessing --> StorageEngine : reads/writes data
-    QueryProcessing ..> DatabaseObjectsMetadata : catalog lookup
+    QueryProcessing ..> TransactionConcurrency
+    QueryProcessing --> StorageEngine
+    QueryProcessing ..> DatabaseObjectsMetadata
 
     %% --- Transaction to WAL ---
-    TransactionConcurrency --> BackupRecoveryLogging : WAL log
+    TransactionConcurrency --> BackupRecoveryLogging
 
     %% --- Administration support ---
-    Administration ..> QueryProcessing : supplies statistics
-    Administration ..> StorageEngine : vacuum, rebuild index
+    Administration ..> QueryProcessing
+    Administration ..> StorageEngine
 
     %% --- Metadata support ---
-    DatabaseObjectsMetadata ..> StorageEngine : schema for record layout
-    DatabaseObjectsMetadata ..> BackupRecoveryLogging : object dependency on restore
+    DatabaseObjectsMetadata ..> StorageEngine
+    DatabaseObjectsMetadata ..> BackupRecoveryLogging
 ```
 
 ---
 
-## Tổng hợp Relationships
+## Relationship Summary
 
-| Từ | Đến | Loại | Ý nghĩa |
+| From | To | Type | Meaning / Purpose |
 |---|---|---|---|
-| `DBMS` | `Communication & Connectivity` | Composition | DBMS sở hữu |
-| `DBMS` | `Security` | Composition | DBMS sở hữu |
-| `DBMS` | `Administration` | Composition | DBMS sở hữu |
-| `Communication & Connectivity` | `Query Processing` | Association | Entry point của mọi request |
-| `Communication & Connectivity` | `Security` | Dependency | Xác thực khi connect |
-| `Query Processing` | `Security` | Dependency | Kiểm tra quyền truy cập object |
-| `Query Processing` | `Transaction & Concurrency` | Dependency | Xin lock, đọc MVCC snapshot |
-| `Query Processing` | `Storage Engine` | Association | Đọc/ghi dữ liệu thực sự |
-| `Query Processing` | `Database Objects & Metadata` | Dependency | Tra cứu catalog, statistics |
-| `Transaction & Concurrency` | `Backup, Recovery & Logging` | Association | WAL trước mỗi thay đổi |
-| `Administration` | `Query Processing` | Dependency | Cung cấp statistics cho optimizer |
-| `Administration` | `Storage Engine` | Dependency | Vacuum, rebuild index, collect stats |
-| `Database Objects & Metadata` | `Storage Engine` | Dependency | Schema để layout record |
-| `Database Objects & Metadata` | `Backup, Recovery & Logging` | Dependency | Object dependency khi restore |
+| `DBMS` | `Communication & Connectivity` | Composition | The DBMS inherently owns the module. |
+| `DBMS` | `Security` | Composition | The DBMS inherently owns the module. |
+| `DBMS` | `Administration` | Composition | The DBMS inherently owns the module. |
+| `Communication & Connectivity` | `Query Processing` | Association | Dispatches payload; acts as the entry point of all requests. |
+| `Communication & Connectivity` | `Security` | Dependency | Requests authentication verification upon connection establishment. |
+| `Query Processing` | `Security` | Dependency | Checks access privileges and resource permissions dynamically. |
+| `Query Processing` | `Transaction & Concurrency` | Dependency | Acquires logical locks and requests MVCC snapshot reading limits. |
+| `Query Processing` | `Storage Engine` | Association | Executes the physical read/write operations against storage units. |
+| `Query Processing` | `Database Objects & Metadata` | Dependency | Looks up schema catalogs, configuration variables, and statistics. |
+| `Transaction & Concurrency` | `Backup, Recovery & Logging` | Association | Synchronously flushes WAL logs prior to persistence mutations. |
+| `Administration` | `Query Processing` | Dependency | Serves execution statistics and metrics profiling to the optimizer. |
+| `Administration` | `Storage Engine` | Dependency | Issues hardware-level commands (vacuuming, index rebuilding). |
+| `Database Objects & Metadata` | `Storage Engine` | Dependency | Translates semantic schema layouts defining record formatting limits. |
+| `Database Objects & Metadata` | `Backup, Recovery & Logging` | Dependency | Preserves structural dependency mappings during point-in-time restores. |
