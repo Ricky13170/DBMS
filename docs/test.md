@@ -1,3 +1,4 @@
+```mermaid
 classDiagram
     direction TB
 
@@ -33,3 +34,4 @@ classDiagram
     Administration --> SecurityManagement
     Administration --> BackupRecoveryLogging
     Administration --> PerformanceManagement
+```
