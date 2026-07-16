@@ -1,317 +1,365 @@
-# Detailed Class Diagram — File Manager (Storage Engine)
+# Class Diagram Chi Tiết — Storage Engine
 
-Tài liệu này đặc tả chi tiết Layer 4 cho sub-module **File Manager**, bao gồm đầy đủ thuộc tính (properties), phương thức (methods), kiểu dữ liệu (Python type hint), và quan hệ giữa các lớp. (Cập nhật sau khi phân tích luồng Sequence D5/D6).
-
----
-
-## 1. Chi Tiết Các Sub-Groups
-
-### Sub-Group 1: File Lifecycle
-Chịu trách nhiệm tạo mới, xóa bỏ, đổi tên và kiểm soát trạng thái vật lý của các file dữ liệu trên hệ thống.
-
-```mermaid
-classDiagram
-    class FileType {
-        <<enumeration>>
-        DATA
-        LOG
-        TEMP
-    }
-    class FileState {
-        <<enumeration>>
-        OPEN
-        CLOSED
-        CREATING
-        CORRUPTED
-    }
-    class DataFile {
-        <<entity>>
-        +file_id: int
-        +path: str
-        +file_type: FileType
-        +state: FileState
-        +size_bytes: int
-        +__init__(file_id: int, path: str, file_type: FileType, state: FileState, size_bytes: int)
-        +load(path: str) DataFile$
-    }
-    class IFileLifecycleManager {
-        <<interface>>
-        +create_file(path: str, file_type: FileType) FileHandle
-        +open_file(path: str, mode: FileAccessMode, lock: FileLockMode) FileHandle
-        +close_file(handle: FileHandle) None
-        +delete_file(path: str) bool
-        +allocate_space(handle: FileHandle, size_bytes: int) int
-    }
-    class FileLifecycleManager {
-        -_open_file_mgr: IOpenFileManager
-        -_reader: IFileReader
-        -_writer: IFileWriter
-        -_synchronizer: IFileSynchronizer
-        +__init__(open_file_mgr: IOpenFileManager, reader: IFileReader, writer: IFileWriter, synchronizer: IFileSynchronizer)
-        +create_file(path: str, file_type: FileType) FileHandle
-        +open_file(path: str, mode: FileAccessMode, lock: FileLockMode) FileHandle
-        +close_file(handle: FileHandle) None
-        +delete_file(path: str) bool
-        +allocate_space(handle: FileHandle, size_bytes: int) int
-        -_lookup_data_file(path: str) DataFile
-    }
-
-    IFileLifecycleManager <|.. FileLifecycleManager
-    FileLifecycleManager ..> DataFile : creates/lookups
-    DataFile ..> FileType
-    DataFile ..> FileState
-```
-
-### Sub-Group 2: File Open/Close Management
-Quản lý việc ánh xạ các file đang mở (OpenFileTable), cơ chế đếm số lần sử dụng (reference counting), và cơ chế khóa file nhằm đảm bảo tính toàn vẹn đa luồng/tiến trình.
-
-```mermaid
-classDiagram
-    class FileAccessMode {
-        <<enumeration>>
-        READ_ONLY
-        WRITE_ONLY
-        READ_WRITE
-    }
-    class FileLockMode {
-        <<enumeration>>
-        SHARED
-        EXCLUSIVE
-        NONE
-    }
-    class FileHandle {
-        <<entity>>
-        +handle_id: int
-        +file_id: int
-        +access_mode: FileAccessMode
-        +lock_mode: FileLockMode
-        +is_valid: bool
-        +__init__(handle_id: int, file_id: int, access_mode: FileAccessMode, lock_mode: FileLockMode)
-        +invalidate() None
-    }
-    class OpenFileEntry {
-        <<entity>>
-        +file_id: int
-        +handle: FileHandle
-        +open_count: int
-        +last_accessed: int
-        +__init__(file_id: int, handle: FileHandle)
-        +increment_open_count() None
-        +decrement_open_count() int
-    }
-    class OpenFileTable {
-        <<entity>>
-        -_entries: dict~int, OpenFileEntry~
-        +__init__()
-        +has_entry(path: str) bool
-        +add_entry(file: DataFile, mode: FileAccessMode, lock: FileLockMode) OpenFileEntry
-        +find_entry(path: str) OpenFileEntry
-        +remove_entry(handle_id: int) None
-        +validate_handle(handle: FileHandle) bool
-    }
-    class IOpenFileManager {
-        <<interface>>
-        +get_handle(path: str) FileHandle
-        +is_already_open(path: str) bool
-        +register(file: DataFile, mode: FileAccessMode, lock: FileLockMode) FileHandle
-        +release_handle(handle: FileHandle) bool
-    }
-    class OpenFileManager {
-        -_table: OpenFileTable
-        -_max_open: int
-        -_next_handle_id: int
-        +__init__(max_open: int)
-        +get_handle(path: str) FileHandle
-        +is_already_open(path: str) bool
-        +register(file: DataFile, mode: FileAccessMode, lock: FileLockMode) FileHandle
-        +release_handle(handle: FileHandle) bool
-    }
-
-    IOpenFileManager <|.. OpenFileManager
-    OpenFileManager *-- OpenFileTable
-    OpenFileTable *-- OpenFileEntry
-    OpenFileEntry *-- FileHandle
-    FileHandle ..> FileAccessMode
-    FileHandle ..> FileLockMode
-```
-
-### Sub-Group 3: Data Read/Write
-Xử lý các thao tác đọc và ghi dữ liệu mức tối thấp (block-level read/write) tại một offset cụ thể.
-
-```mermaid
-classDiagram
-    class IFileReader {
-        <<interface>>
-        +read_block(handle: FileHandle, offset: int, size: int) bytes
-    }
-    class FileReader {
-        -_file_descriptors: dict~int, object~
-        +__init__()
-        +read_block(handle: FileHandle, offset: int, size: int) bytes
-    }
-    class IFileWriter {
-        <<interface>>
-        +write_block(handle: FileHandle, offset: int, data: bytes) None
-    }
-    class FileWriter {
-        -_file_descriptors: dict~int, object~
-        +__init__()
-        +write_block(handle: FileHandle, offset: int, data: bytes) None
-    }
-
-    IFileReader <|.. FileReader
-    IFileWriter <|.. FileWriter
-```
-
-### Sub-Group 4: Disk Synchronization
-Đảm bảo cơ chế đồng bộ hóa dữ liệu từ bộ nhớ đệm (OS cache) xuống thiết bị lưu trữ vật lý nhằm đáp ứng tiêu chí ACID (phần Durability). Cũng quản lý việc không gian tĩnh.
-
-```mermaid
-classDiagram
-    class IFileSynchronizer {
-        <<interface>>
-        +allocate_on_disk(path: str) None
-        +delete_from_disk(path: str) None
-        +expand_file(handle: FileHandle, size_bytes: int) int
-        +fsync(handle: FileHandle) None
-        +flush_buffers(handle: FileHandle) None
-    }
-    class FileSynchronizer {
-        +__init__()
-        +allocate_on_disk(path: str) None
-        +delete_from_disk(path: str) None
-        +expand_file(handle: FileHandle, size_bytes: int) int
-        +fsync(handle: FileHandle) None
-        +flush_buffers(handle: FileHandle) None
-    }
-
-    IFileSynchronizer <|.. FileSynchronizer
-```
+Zoom vào nhánh **Storage Engine**, thể hiện đầy đủ:
+- Concrete classes `[C]`, Abstract classes `[A]`, Interfaces `[I]`
+- Properties và methods (Python snake_case)
+- Relationships nội bộ giữa các class
 
 ---
-
-## 2. Toàn Bộ Detailed Class Diagram (Gộp & Quan Hệ Hoàn Chỉnh)
-
-Sơ đồ quan hệ phụ thuộc giữa các lớp thực thi và interface trong cấu trúc File Manager (bao gồm các dependency injection):
 
 ```mermaid
 classDiagram
     direction TB
 
-    %% File Lifecycle
-    class DataFile {
-        +file_id: int
-        +path: str
-        +file_type: FileType
-        +state: FileState
-        +size_bytes: int
-        +load(path) DataFile$
-    }
-    class FileLifecycleManager {
-        -_open_file_mgr: IOpenFileManager
-        -_reader: IFileReader
-        -_writer: IFileWriter
-        -_synchronizer: IFileSynchronizer
-        +create_file(path: str, file_type: FileType) FileHandle
-        +open_file(path: str, mode: FileAccessMode, lock: FileLockMode) FileHandle
-        +close_file(handle: FileHandle) None
-        +delete_file(path: str) bool
-        +allocate_space(handle: FileHandle, size_bytes: int) int
+    %% ════════════════════════════════════════
+    %% FILE MANAGER
+    %% ════════════════════════════════════════
+
+    class IFileOperations {
+        <<interface>>
+        +open(path: str, mode: str) FileHandle
+        +close(handle: FileHandle) None
+        +read(handle: FileHandle, offset: int, size: int) bytes
+        +write(handle: FileHandle, offset: int, data: bytes) None
+        +sync(handle: FileHandle) None
     }
 
-    %% Open/Close Manager
-    class FileHandle {
-        +handle_id: int
-        +file_id: int
-        +access_mode: FileAccessMode
-        +lock_mode: FileLockMode
-        +is_valid: bool
+    class OSFileWrapper {
+        -_file_descriptors: dict
+        +open(path: str, mode: str) FileHandle
+        +close(handle: FileHandle) None
+        +read(handle: FileHandle, offset: int, size: int) bytes
+        +write(handle: FileHandle, offset: int, data: bytes) None
+        +sync(handle: FileHandle) None
+        +get_file_size(handle: FileHandle) int
     }
-    class OpenFileEntry {
-        +file_id: int
-        +handle: FileHandle
-        +open_count: int
-        +last_accessed: int
+
+    class DataFileRegistry {
+        -_registry: dict
+        +register(file_id: int, path: str) None
+        +unregister(file_id: int) None
+        +lookup(file_id: int) str
+        +is_registered(file_id: int) bool
     }
-    class OpenFileTable {
-        -entries: dict~int, OpenFileEntry~
-        +add_entry(file: DataFile, mode: FileAccessMode, lock: FileLockMode) OpenFileEntry
-        +find_entry(path: str) OpenFileEntry
-        +validate_handle(handle: FileHandle) bool
-        +remove_entry(handle_id: int) None
-    }
-    class OpenFileManager {
-        -_table: OpenFileTable
+
+    class FileDescriptorManager {
+        -_open_descriptors: dict
         -_max_open: int
-        -_next_handle_id: int
-        +is_already_open(path: str) bool
-        +get_handle(path: str) FileHandle
-        +register(file: DataFile, mode: FileAccessMode, lock: FileLockMode) FileHandle
-        +release_handle(handle: FileHandle) bool
+        +acquire(file_id: int) FileDescriptor
+        +release(fd: FileDescriptor) None
+        +is_open(file_id: int) bool
+        +get_active_count() int
     }
 
-    %% Read/Write
-    class FileReader {
-        -_file_descriptors: dict~int, object~
-        +read_block(handle: FileHandle, offset: int, size: int) bytes
-    }
-    class FileWriter {
-        -_file_descriptors: dict~int, object~
-        +write_block(handle: FileHandle, offset: int, data: bytes) None
+    class FileGrowthManager {
+        -_growth_policy: str
+        -_growth_size: int
+        +expand_file(file_id: int, additional_bytes: int) None
+        +set_growth_policy(policy: str, size: int) None
+        +get_current_size(file_id: int) int
     }
 
-    %% Synchronizer
-    class FileSynchronizer {
-        +allocate_on_disk(path: str) None
-        +delete_from_disk(path: str) None
-        +expand_file(handle: FileHandle, size_bytes: int) int
-        +fsync(handle: FileHandle) None
-        +flush_buffers(handle: FileHandle) None
+    IFileOperations <|.. OSFileWrapper : implements
+    OSFileWrapper --> DataFileRegistry : lookups path
+    OSFileWrapper --> FileDescriptorManager : acquires fd
+    FileGrowthManager --> IFileOperations : expands via
+
+    %% ════════════════════════════════════════
+    %% PAGE MANAGER
+    %% ════════════════════════════════════════
+
+    class IPageIO {
+        <<interface>>
+        +read_page(page_id: int) Page
+        +write_page(page: Page) None
     }
 
-    %% Interfaces
-    class IFileLifecycleManager { <<interface>> }
-    class IOpenFileManager { <<interface>> }
-    class IFileReader { <<interface>> }
-    class IFileWriter { <<interface>> }
-    class IFileSynchronizer { <<interface>> }
+    class AbstractPageFormatter {
+        <<abstract>>
+        +format_page(page: Page) None
+        #_write_page_header(page: Page, header: PageHeader) None
+        #_init_slot_directory(page: Page) None
+    }
 
-    %% Realizations
-    IFileLifecycleManager <|.. FileLifecycleManager
-    IOpenFileManager <|.. OpenFileManager
-    IFileReader <|.. FileReader
-    IFileWriter <|.. FileWriter
-    IFileSynchronizer <|.. FileSynchronizer
+    class DefaultPageFormatter {
+        -_page_size: int
+        +format_page(page: Page) None
+        +format_empty_page(page_id: int) Page
+    }
 
-    %% Aggregations (Facade dependency Injection)
-    FileLifecycleManager o--> IOpenFileManager : delegates handle track
-    FileLifecycleManager o--> IFileReader      : delegates reads
-    FileLifecycleManager o--> IFileWriter      : delegates writes
-    FileLifecycleManager o--> IFileSynchronizer: delegates syncs
+    class PageHeaderManager {
+        -PAGE_SIZE: int
+        +read_header(page: Page) PageHeader
+        +write_header(page: Page, header: PageHeader) None
+        +is_valid(page: Page) bool
+        +get_page_type(page: Page) str
+    }
 
-    %% Compositions
-    OpenFileManager *-- OpenFileTable
-    OpenFileTable *-- OpenFileEntry
-    OpenFileEntry *-- FileHandle
+    class SlotDirectoryManager {
+        +add_slot(page: Page, offset: int, length: int) int
+        +remove_slot(page: Page, slot_id: int) None
+        +get_slot(page: Page, slot_id: int) SlotEntry
+        +get_free_slot(page: Page) int
+    }
 
-    %% Dependencies
-    FileLifecycleManager ..> DataFile : creates/lookups
+    class FreeSpaceManager {
+        -_fsm_table: dict
+        +get_free_space(page_id: int) int
+        +mark_used(page_id: int, bytes_used: int) None
+        +find_page_with_space(required: int) int
+    }
+
+    class PageIOInterface {
+        -_file_manager: IFileOperations
+        +read_page(page_id: int) Page
+        +write_page(page: Page) None
+        +read_raw(page_id: int) bytes
+    }
+
+    AbstractPageFormatter <|-- DefaultPageFormatter : extends
+    IPageIO <|.. PageIOInterface : implements
+    PageIOInterface --> IFileOperations : reads/writes via
+    DefaultPageFormatter --> PageHeaderManager : writes header
+    DefaultPageFormatter --> SlotDirectoryManager : inits slots
+    FreeSpaceManager --> PageHeaderManager : reads free space from
+
+    %% ════════════════════════════════════════
+    %% BUFFER MANAGER
+    %% ════════════════════════════════════════
+
+    class IReplacementPolicy {
+        <<interface>>
+        +choose_victim() int
+        +notify_access(page_id: int) None
+        +notify_pin(page_id: int) None
+    }
+
+    class AbstractReplacementPolicy {
+        <<abstract>>
+        #_pinned: set
+        +choose_victim() int
+        +notify_access(page_id: int) None
+        +notify_pin(page_id: int) None
+    }
+
+    class LRUPolicy {
+        -_access_order: dict
+        +choose_victim() int
+        +notify_access(page_id: int) None
+    }
+
+    class ClockPolicy {
+        -_clock_hand: int
+        -_ref_bits: list
+        +choose_victim() int
+        +notify_access(page_id: int) None
+    }
+
+    class BufferFrameManager {
+        -_frames: list
+        -_capacity: int
+        -_page_table: dict
+        +pin_page(page_id: int) Page
+        +unpin_page(page_id: int, is_dirty: bool) None
+        +is_in_buffer(page_id: int) bool
+        +get_frame_count() int
+    }
+
+    class DirtyPageWriter {
+        -_dirty_pages: set
+        +mark_dirty(page_id: int) None
+        +flush_dirty_pages() None
+        +flush_page(page_id: int) None
+        +get_dirty_count() int
+    }
+
+    class PrefetchManager {
+        -_prefetch_queue: list
+        +prefetch(page_ids: list) None
+        +is_ready(page_id: int) bool
+        +set_prefetch_size(size: int) None
+    }
+
+    IReplacementPolicy <|.. AbstractReplacementPolicy : implements
+    AbstractReplacementPolicy <|-- LRUPolicy : extends
+    AbstractReplacementPolicy <|-- ClockPolicy : extends
+    BufferFrameManager --> IReplacementPolicy : uses policy
+    BufferFrameManager --> DirtyPageWriter : marks dirty
+    BufferFrameManager --> IPageIO : swaps pages
+    PrefetchManager --> IPageIO : pre-reads pages
+
+    %% ════════════════════════════════════════
+    %% RECORD MANAGER
+    %% ════════════════════════════════════════
+
+    class IRecordLayout {
+        <<interface>>
+        +serialize(record: Record) bytes
+        +deserialize(data: bytes, schema: Schema) Record
+    }
+
+    class RecordLayoutManager {
+        -_schema: Schema
+        +serialize(record: Record) bytes
+        +deserialize(data: bytes, schema: Schema) Record
+        +get_record_size(schema: Schema) int
+        +is_fixed_length(schema: Schema) bool
+    }
+
+    class RIDGenerator {
+        +generate_rid(page_id: int, slot_id: int) RID
+        +parse_rid(rid: RID) tuple
+        +is_valid_rid(rid: RID) bool
+    }
+
+    class VarLenDataManager {
+        +store(data: bytes, page: Page) int
+        +retrieve(ref: int, page: Page) bytes
+        +get_stored_size(ref: int) int
+    }
+
+    class LargeObjectManager {
+        -_lob_storage: IFileOperations
+        +store_lob(data: bytes) int
+        +retrieve_lob(lob_ref: int) bytes
+        +delete_lob(lob_ref: int) None
+        +get_lob_size(lob_ref: int) int
+    }
+
+    IRecordLayout <|.. RecordLayoutManager : implements
+    RecordLayoutManager --> RIDGenerator : generates RID after store
+    RecordLayoutManager --> VarLenDataManager : delegates variable cols
+    RecordLayoutManager --> LargeObjectManager : delegates LOB cols
+    VarLenDataManager --> SlotDirectoryManager : uses slot for offset
+    LargeObjectManager --> IFileOperations : stores in separate file
+
+    %% ════════════════════════════════════════
+    %% ACCESS METHODS
+    %% ════════════════════════════════════════
+
+    class IAccessMethod {
+        <<interface>>
+        +search(key: object) RID
+        +range_search(low: object, high: object) list
+        +insert(key: object, rid: RID) None
+        +delete(key: object) None
+    }
+
+    class BPlusTreeManager {
+        -_root_page_id: int
+        -_order: int
+        -_index_state: IndexStateManager
+        +search(key: object) RID
+        +range_search(low: object, high: object) list
+        +insert(key: object, rid: RID) None
+        +delete(key: object) None
+        -_split_node(node_id: int) None
+        -_merge_node(node_id: int) None
+        -_find_leaf(key: object) int
+    }
+
+    class HashIndexManager {
+        -_buckets: list
+        -_bucket_count: int
+        +search(key: object) RID
+        +range_search(low: object, high: object) list
+        +insert(key: object, rid: RID) None
+        +delete(key: object) None
+        -_hash(key: object) int
+        -_rehash() None
+    }
+
+    class IndexStateManager {
+        -_root_page_id: int
+        -_tree_height: int
+        -_total_entries: int
+        +get_state(index_id: int) dict
+        +update_state(index_id: int, state: dict) None
+        +get_root_page(index_id: int) int
+    }
+
+    class IndexMaintenance {
+        +rebuild_index(index_id: int) None
+        +reorganize_index(index_id: int) None
+        +validate_index(index_id: int) bool
+        +get_fragmentation(index_id: int) float
+    }
+
+    IAccessMethod <|.. BPlusTreeManager : implements
+    IAccessMethod <|.. HashIndexManager : implements
+    BPlusTreeManager --> IndexStateManager : reads/updates state
+    BPlusTreeManager --> BufferFrameManager : pins tree pages
+    HashIndexManager --> BufferFrameManager : pins bucket pages
+    IndexMaintenance --> BPlusTreeManager : rebuilds
+    IndexMaintenance --> IndexStateManager : resets state
+
+    %% ════════════════════════════════════════
+    %% STORAGE ALLOCATION
+    %% ════════════════════════════════════════
+
+    class ExtentManager {
+        -EXTENT_SIZE: int
+        -_extent_bitmap: list
+        +allocate_extent(file_id: int) int
+        +free_extent(extent_id: int) None
+        +get_free_extent_count() int
+    }
+
+    class SegmentManager {
+        -_segments: dict
+        +create_segment(table_id: int) int
+        +drop_segment(segment_id: int) None
+        +expand_segment(segment_id: int) None
+        +get_segment_pages(segment_id: int) list
+    }
+
+    class TablespaceManager {
+        -_tablespaces: dict
+        +create_tablespace(name: str, path: str) int
+        +drop_tablespace(tablespace_id: int) None
+        +get_tablespace(table_id: int) int
+        +list_tablespaces() list
+    }
+
+    class SpaceReclamationManager {
+        +reclaim_page(page_id: int) None
+        +compact_segment(segment_id: int) None
+        +get_reclaimable_pages() list
+    }
+
+    SegmentManager --> ExtentManager : allocates extents
+    TablespaceManager --> SegmentManager : manages segments
+    SpaceReclamationManager --> ExtentManager : returns extents
+    SpaceReclamationManager --> FreeSpaceManager : updates FSM
+
+    %% ════════════════════════════════════════
+    %% CROSS-MODULE DEPENDENCIES (nội bộ Storage Engine)
+    %% ════════════════════════════════════════
+
+    BufferFrameManager ..> PageHeaderManager : validates page on load
+    RecordLayoutManager ..> FreeSpaceManager : checks free space before insert
+    BPlusTreeManager ..> PageIOInterface : reads index pages
 ```
 
 ---
 
-## 3. Bản Đồ Properties & Methods Chi Tiết
+## Tổng hợp Classes
 
-Dưới đây là thống kê toàn bộ thuộc tính và phương thức với kiểu dữ liệu của File Manager chuẩn bị cho TDD:
+| Sub-module | Interface | Abstract | Concrete |
+|---|---|---|---|
+| **File Manager** | `IFileOperations` | — | `OSFileWrapper`, `DataFileRegistry`, `FileDescriptorManager`, `FileGrowthManager` |
+| **Page Manager** | `IPageIO` | `AbstractPageFormatter` | `DefaultPageFormatter`, `PageHeaderManager`, `SlotDirectoryManager`, `FreeSpaceManager`, `PageIOInterface` |
+| **Buffer Manager** | `IReplacementPolicy` | `AbstractReplacementPolicy` | `LRUPolicy`, `ClockPolicy`, `BufferFrameManager`, `DirtyPageWriter`, `PrefetchManager` |
+| **Record Manager** | `IRecordLayout` | — | `RecordLayoutManager`, `RIDGenerator`, `VarLenDataManager`, `LargeObjectManager` |
+| **Access Methods** | `IAccessMethod` | — | `BPlusTreeManager`, `HashIndexManager`, `IndexStateManager`, `IndexMaintenance` |
+| **Storage Allocation** | — | — | `ExtentManager`, `SegmentManager`, `TablespaceManager`, `SpaceReclamationManager` |
 
-| Class / Entity | Type | Properties | Methods & Signatures |
-| :--- | :--- | :--- | :--- |
-| **`DataFile`** | Entity | - `file_id: int`<br>- `path: str`<br>- `file_type: FileType`<br>- `state: FileState`<br>- `size_bytes: int` | - `__init__(file_id, path, file_type, state, size_bytes)`<br>- `load(path: str) -> DataFile` (Static) |
-| **`FileHandle`** | Entity | - `handle_id: int`<br>- `file_id: int`<br>- `access_mode: FileAccessMode`<br>- `lock_mode: FileLockMode`<br>- `is_valid: bool` | - `__init__(handle_id, file_id, access_mode, lock_mode)`<br>- `invalidate() -> None` |
-| **`OpenFileEntry`** | Entity | - `file_id: int`<br>- `handle: FileHandle`<br>- `open_count: int`<br>- `last_accessed: int` | - `__init__(file_id, handle)`<br>- `increment_open_count() -> None`<br>- `decrement_open_count() -> int` |
-| **`OpenFileTable`** | Entity | - `_entries: dict[int, OpenFileEntry]` | - `__init__()`<br>- `has_entry(path: str) -> bool`<br>- `add_entry(file, mode, lock) -> OpenFileEntry`<br>- `find_entry(path: str) -> OpenFileEntry`<br>- `remove_entry(handle_id)`<br>- `validate_handle(handle) -> bool` |
-| **`FileLifecycleManager`** | Facade | - `_open_file_mgr: IOpenFileManager`<br>- `_reader: IFileReader`<br>- `_writer: IFileWriter`<br>- `_synchronizer: IFileSynchronizer` | - `__init__(open_file_mgr, reader, writer, synchronizer)`<br>- `create_file(path, file_type) -> FileHandle`<br>- `open_file(path, mode, lock) -> FileHandle`<br>- `close_file(handle) -> None`<br>- `delete_file(path) -> bool`<br>- `allocate_space(handle, size_bytes) -> int`<br>- `_lookup_data_file(path) -> DataFile` |
-| **`OpenFileManager`** | Service | - `_table: OpenFileTable`<br>- `_max_open: int`<br>- `_next_handle_id: int` | - `__init__(max_open)`<br>- `get_handle(path: str) -> FileHandle`<br>- `is_already_open(path: str) -> bool`<br>- `register(file, mode, lock) -> FileHandle`<br>- `release_handle(handle) -> bool` |
-| **`FileReader`** | Service | - `_file_descriptors: dict[int, object]` | - `__init__()`<br>- `read_block(handle, offset, size) -> bytes` |
-| **`FileWriter`** | Service | - `_file_descriptors: dict[int, object]` | - `__init__()`<br>- `write_block(handle, offset, data) -> None` |
-| **`FileSynchronizer`** | Service | None | - `allocate_on_disk(path: str) -> None`<br>- `delete_from_disk(path: str) -> None`<br>- `expand_file(handle, size_bytes) -> int`<br>- `fsync(handle) -> None`<br>- `flush_buffers(handle) -> None` |
+## Design Patterns được áp dụng
+
+| Pattern | Ở đâu | Mục đích |
+|---|---|---|
+| **Strategy** | `IReplacementPolicy` → LRU / Clock | Swap thuật toán eviction không đụng `BufferFrameManager` |
+| **Strategy** | `IAccessMethod` → B+Tree / Hash | Swap index engine không đụng Query layer |
+| **Template Method** | `AbstractPageFormatter` | Định nghĩa khung format, subclass override chi tiết |
+| **Facade** | `BufferFrameManager` | Che phức tạp của buffer pool khỏi các layer trên |
+| **Interface Segregation** | `IFileOperations`, `IPageIO` tách biệt | Không ép class implement method không dùng |
