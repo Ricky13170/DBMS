@@ -54,27 +54,6 @@ classDiagram
     Administration --> StorageEngine
 ```
 
-### Dependency Definitions
-
-Dưới đây là bảng giải thích chi tiết các mối quan hệ (Dependencies) được thiết lập trong kiến trúc Layer 1:
-
-| Nguồn gọi (Source) | Phụ thuộc vào (Target) | Mục đích / Hành động |
-|---|---|---|
-| **CommunicationConnectivity** | QueryProcessing | Gửi câu lệnh SQL để xử lý |
-| **CommunicationConnectivity** | Security | Yêu cầu kiểm tra Authentication thông tin kết nối |
-| **QueryProcessing** | DatabaseObjectMetadata | Nhận metadata (Schema/Catalog) để validate |
-| **QueryProcessing** | StorageEngine | Gửi yêu cầu Đọc/Ghi dữ liệu vật lý |
-| **QueryProcessing** | TransactionConcurrency | Tạo context giao dịch, yêu cầu Lock |
-| **QueryProcessing** | Security | Kiểm tra Authorization (quyền) của câu truy vấn |
-| **TransactionConcurrency** | StorageEngine | Lock các bản ghi/Page vật lý |
-| **TransactionConcurrency** | BackupRecoveryLogging | Đẩy log vào WAL (Write-Ahead Log) trước khi commit |
-| **BackupRecoveryLogging** | StorageEngine | Flush dữ liệu khi Checkpoint hoặc Restore Page |
-| **Administration** | Security | Truy xuất vào Audit Log, phân mảnh quyền user |
-| **Administration** | BackupRecoveryLogging | Kích hoạt kịch bản tạo Backup |
-| **Administration** | QueryProcessing | Thu thập Metrics, Slow queries |
-| **Administration** | StorageEngine | Kích hoạt bảo trì (Vacuum), chạy kiểm tra DBCC |
-
----
 
 ## Design Principles
 
