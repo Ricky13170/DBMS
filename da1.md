@@ -73,17 +73,55 @@ classDiagram
     OSFileWrapper ..|> IOSFileWrapper
     
     %% Service Dependencies (Delegations)
-    FileLifecycleManager --> FileDescriptorManager : registers/closes handles
-    FileLifecycleManager --> FileGrowthManager : delegates expansion config
-    FileLifecycleManager --> OSFileWrapper : physical OS calls
+    FileLifecycleManager --> FileDescriptorManager
+    FileLifecycleManager --> FileGrowthManager
+    FileLifecycleManager --> OSFileWrapper
 
-    PageIOManager --> FileDescriptorManager : fetches open handles
-    PageIOManager --> OSFileWrapper : raw byte I/O
+    PageIOManager --> FileDescriptorManager
+    PageIOManager --> OSFileWrapper
     
     %% Entity Composition & Usage
-    DataFile *-- PagePointer : Maps logic bounds
-    DataFile --> FileAccessMode : Has rules
-    DataFile --> GrowthStrategy : Defines expansion limit
+    DataFile *-- PagePointer
+    DataFile --> FileAccessMode
+    DataFile --> GrowthStrategy
 
-    FileLifecycleManager ..> DataFile : Orchestrates logic state
+    FileLifecycleManager ..> DataFile
 ```
+
+---
+
+## Component Roles & Relationships
+
+### 1. Component Summary
+| Component / Class | Type | Functionality / Role |
+|---|---|---|
+| `IFileLifecycleManager` | Interface | Contract defining lifecycle operations (create, open, delete) for database files. |
+| `IPageIOInterface` | Interface | Contract for reading/writing raw blocks of bytes between RAM and disk. |
+| `IFileDescriptorManager` | Interface | Contract managing operating system file handles securely. |
+| `IOSFileWrapper` | Interface | Contract masking raw OS-level kernel system calls (e.g., POSIX `read`/`write`). |
+| `FileAccessMode` | Enum | Defines file intent limits (Read-Only, Read-Write, Exclusive, Append). |
+| `GrowthStrategy` | Enum | Defines expansion algorithms mathematically (e.g., Fixed Chunk, Exponential). |
+| `DataFile` | Entity | Represents the logical state properties of an active relational storage file. |
+| `PagePointer` | Entity | Maps logical limits mapping exact offset addresses within a specific `DataFile`. |
+| `FileLifecycleManager` | Service | Main orchestrator managing the existence loop of files. Resolves boundaries avoiding conflicts. |
+| `PageIOManager` | Service | Bypasses caching fetching block offsets mapping physical bytes safely to Memory blocks. |
+| `FileDescriptorManager` | Service | Balances and tracks OS file pointer limits (saving File Descriptors dynamically). |
+| `FileGrowthManager` | Service | Calculates required append sizes tracking metadata limits appending bytes logically. |
+| `OSFileWrapper` | Utility | Translates generalized IO commands directly into hardware compatible kernel system calls. |
+
+### 2. Relationship Mappings
+| From | To | Relationship Type | Meaning / Purpose |
+|---|---|---|---|
+| `FileLifecycleManager` | `IFileLifecycleManager` | Realization (`..\|>`) | Fulfills the lifecycle interface logic. |
+| `PageIOManager` | `IPageIOInterface` | Realization (`..\|>`) | Fulfills the page-block interface bounds. |
+| `FileDescriptorManager` | `IFileDescriptorManager`| Realization (`..\|>`) | Implements the handle tracking pool bounds. |
+| `OSFileWrapper` | `IOSFileWrapper` | Realization (`..\|>`) | Implements explicit low-level operational calls (Mockable). |
+| `FileLifecycleManager` | `FileDescriptorManager` | Association (`-->`) | Registers or closes file pointers (`fd`) continuously during file operations. |
+| `FileLifecycleManager` | `FileGrowthManager` | Association (`-->`) | Delegates physical expansion limit decisions to external rules engine. |
+| `FileLifecycleManager` | `OSFileWrapper` | Association (`-->`) | Fires final physical kernel operations natively preventing locking. |
+| `PageIOManager` | `FileDescriptorManager` | Association (`-->`) | Requires pulling active `fd` pointers before commencing block fetching. |
+| `PageIOManager` | `OSFileWrapper` | Association (`-->`) | Triggers direct byte-array flushing operations bypassing unneeded logics. |
+| `DataFile` | `PagePointer` | Composition (`*--`) | A data file structurally owns memory chunks represented via internal pointers. |
+| `DataFile` | `FileAccessMode` | Association (`-->`) | Imposes restrictive reading rule bounds (Read/Write definitions). |
+| `DataFile` | `GrowthStrategy` | Association (`-->`) | Utilizes static configuration strategies strictly bounding auto-growth logic. |
+| `FileLifecycleManager` | `DataFile` | Dependency (`..>`) | Mutates object state initializing metadata inside logical entity instances. |
