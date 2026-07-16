@@ -1,26 +1,50 @@
-# Mindmap: FileManager Test Cases (TDD Layer 3)
+# Flowchart: Top-Down Architecture to Test Implementation
 
-The mindmap below structurally visualizes the 3 primary groups of test scenarios (Test Cases) designed to ensure the `FileManager` class operates flawlessly under all core conditions and potential software risks.
+This flowchart illustrates the "Drill-down Journey" from the massive core system (Layer 1) cascading through design specifications (Layer 2) and arriving at the execution layer (Layer 3 - Test Cases).
+
+This flowchart focuses exclusively on expanding the `Storage Engine -> File Manager` branch to keep the representation clean and readable. It closely aligns with the hierarchical structure design described in the `DBMS_layer2.txt` reference.
 
 ```mermaid
-mindmap
-  root((FileManager
-  Test Cases Layer 3))
-    Happy Paths (Standard Flows)
-      FM_01: Create and Open File Success
-      FM_02: Write and Read Match exactly 4096 Bytes
-      FM_03: Safely Close File and Clear Cache
+flowchart TD
+    %% LAYER 1: Core System
+    DBMS["DBMS (Core System)"]
     
-    Exception Handling (Error Scenarios)
-      FM_04: IOError on Reading Unopened File
-      FM_05: ValueError on Writing Invalid Block Size
-      FM_06: No Crash on Double Close (Returns False)
-      FM_07: IOError on Writing Unopened File
-      FM_08: Read Null Bytes when seeking Out of Bounds
-      
-    Scalability & Bounds (Stress Bounds)
-      FM_09: Concurrently Manage Multiple Independent File Descriptors
-      FM_10: Continuously Write Blocks to Scale File Size accurately to N*4KB
-```
+    DBMS --> SE["Storage Engine"]
+    DBMS --> QP["Query Processing..."]
+    DBMS --> TC["Transaction & Concurrency..."]
+    DBMS --> SEC["Security..."]
+    DBMS --> DOM["Database Object & Metadata..."]
+    DBMS --> ADM["Administration..."]
+    DBMS --> BRL["Backup, Recovery & Logging..."]
+    DBMS --> CC["Communication & Connectivity..."]
+    
+    %% LAYER 2: Storage Engine Components
+    SE --> FM["File Manager"]
+    SE --> PM["Page Manager"]
+    SE --> BM["Buffer Manager"]
+    SE --> RM["Record Manager"]
+    SE --> AM["Access Methods"]
+    SE --> SA["Storage Allocation"]
+    
+    %% LAYER 3: File Manager Test Cases (TDD Execution)
+    subgraph TDD["Layer 3: TDD Framework for FileManager"]
+        direction TB
+        FM --> T_FM_01["FM_01: Create & Open File"]
+        FM --> T_FM_02["FM_02: Write & Read Block"]
+        FM --> T_FM_03["FM_03: Close File"]
+        FM --> T_FM_04["FM_04: Read Unopened (IOError)"]
+        FM --> T_FM_05["FM_05: Write Invalid Size (ValueError)"]
+        FM --> T_FM_06["FM_06: Read Non-existent Block"]
+        FM --> T_FM_07["FM_07: Close Dead File"]
+        FM --> T_FM_08["FM_08: Concurrent Multiple Files"]
+    end
 
-*This diagram directly corresponds to the detailed test catalog found at `docs/testing/test_plan_file_manager.md` and aligns with the actual Python test source code at `tests/Layer_3/storage_engine/test_file_manager.py`*
+    %% Custom styling to separate Layers by Color
+    classDef layer1 fill:#ffebee,stroke:#c62828,stroke-width:2px;
+    classDef layer2 fill:#e3f2fd,stroke:#1565c0,stroke-width:1px;
+    classDef layer3 fill:#e8f5e9,stroke:#2e7d32,stroke-width:1px,stroke-dasharray: 4 4;
+    
+    class DBMS,QP,TC,SEC,DOM,ADM,BRL,CC layer1;
+    class SE,PM,BM,RM,AM,SA layer2;
+    class T_FM_01,T_FM_02,T_FM_03,T_FM_04,T_FM_05,T_FM_06,T_FM_07,T_FM_08 layer3;
+```
