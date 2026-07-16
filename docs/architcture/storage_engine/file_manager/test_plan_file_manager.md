@@ -4,6 +4,8 @@ This document defines the automated testing architecture for the **File Manager*
 
 ---
 
+---
+
 ## 1. Unit Test Scenarios (Mocked Dependencies)
 *Strategy: Utilize Python's `unittest.mock` strictly isolating the focal class, verifying internal function matrix execution logic correctly without touching the actual hard drive.*
 
@@ -22,6 +24,21 @@ This document defines the automated testing architecture for the **File Manager*
 | UT-OFM-02 | Handle Limit Breached | `OpenFileTable` holds Maximum active instances | call `register(dataFile)` | Throws `MaxOpenFilesExceededException` aggressively |
 | UT-OFM-03 | Releasing Handle | `open_count` is initially 2 | call `release_handle(id)` | Drops count to 1, Table Entry is NOT purged functionally |
 | UT-OFM-04 | Auto-Evict Handle | `open_count` is 1 | call `release_handle(id)` | Count drops 0, structurally REMOVES Entry bridging Memory clean-up |
+
+### Target: `test_file_io.py` (Testing `FileReader` & `FileWriter`)
+| ID | Behavior Spec (TDD) | Given (Context / Setup) | When (Trigger) | Then (Assertion) |
+|---|---|---|---|---|
+| UT-IO-01 | Write Valid Block | Handle is valid and has WRITE Mode | call `write_block(handle, offset, data)` | OS write called exactly correlating offset and byte injection |
+| UT-IO-02 | Write Invalid Handle | Handle is closed or READ_ONLY Mode | call `write_block(...)` | Throws `InvalidHandleException` preventing manipulation |
+| UT-IO-03 | Read Valid Block | Handle is valid and has READ Mode | call `read_block(handle, offset, size)` | Returns correct byte array directly bridged from Mocked OS |
+| UT-IO-04 | Read Out of Bounds | Request offset+size logically exceeds EOF | call `read_block(...)` | Triggers OS crash interception returning `EOFException` |
+
+### Target: `test_file_synchronizer.py` (Testing `FileSynchronizer`)
+| ID | Behavior Spec (TDD) | Given (Context / Setup) | When (Trigger) | Then (Assertion) |
+|---|---|---|---|---|
+| UT-SYNC-01 | Valid Expansion | OS has sufficient physical free space | call `expand_file(handle, size)` | Appends null padding bytes sequentially, returning new EOF offset boundary |
+| UT-SYNC-02 | Expansion Fails | OS throws insufficient disk space alert | call `expand_file(handle, size)` | Intercepts OS code translating into logical `OutOfSpaceException` |
+| UT-SYNC-03 | Flush Dirty Buffers | Handle has active memory unflushed blocks | call `fsync(handle)` | Explicitly fires `fsync()` kernel bypassing OS caching completely (ACID Durability) |
 
 ---
 
