@@ -9,7 +9,6 @@ sequenceDiagram
     participant OS as Operating System / HDD
 
     %% --------- READ FILE SCENARIO ---------
-    rect rgb(235, 245, 255)
     Note over PM,OS: Scenario 1: Read a Block (Page) from Disk
     PM->>FM: read_block(file_id, block_id)
     
@@ -32,10 +31,8 @@ sequenceDiagram
         OS-->>FM: raw_bytes
         FM-->>PM: return raw_bytes
     end
-    end
 
     %% --------- WRITE FILE SCENARIO ---------
-    rect rgb(255, 245, 235)
     Note over PM,OS: Scenario 2: Write a Block (Page) to Disk
     PM->>FM: write_block(file_id, block_id, data_bytes)
     
@@ -60,5 +57,4 @@ sequenceDiagram
     end
     
     FM-->>PM: return True (Success)
-    end
 ```
