@@ -7,8 +7,11 @@ classDiagram
     direction TB
     
     class FileManager {
-        +create_file(file_path: str) bool
-        +open_file(file_path: str) bool
+        -_open_files: dict[int, int]
+        -_get_file_handle(file_id: int) int
+        +create_file(file_path: str, file_id: int) bool
+        +open_file(file_path: str, file_id: int) bool
+        +close_file(file_id: int) bool
         +read_block(file_id: int, block_id: int) bytes
         +write_block(file_id: int, block_id: int, data: bytes) bool
     }
